@@ -1,7 +1,6 @@
 package opennpc.test;
 
 import com.google.gson.JsonObject;
-import com.mojang.datafixers.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,14 +13,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.Biomes;
-import net.minecraft.world.level.levelgen.Heightmap;
 import opennpc.OpenNpc;
 import opennpc.entity.CompanionEntity;
 import org.jspecify.annotations.Nullable;
@@ -45,25 +37,13 @@ public class CompanionClientTest implements FabricClientGameTest {
 		writeConfig(ai.url());
 		ctx.getInput().resizeWindow(1280, 720);
 
-		try (TestSingleplayerContext sp = ctx.worldBuilder().setUseConsistentSettings(false).adjustSettings(s -> {
-			s.setSeed("open npc");
+		// Fabric's test world: flat grassland, the same every time (so the pictures and the checks never depend on luck)
+		try (TestSingleplayerContext sp = ctx.worldBuilder().adjustSettings(s -> {
 			s.setGameMode(WorldCreationUiState.SelectedGameMode.SURVIVAL);
 			s.setDifficulty(Difficulty.PEACEFUL);
 			s.setAllowCommands(true);
 		}).create()) {
 			sp.getClientLevel().waitForChunksRender();
-			// open grass to walk on: the nearest plains
-			sp.getServer().runOnServer(server -> {
-				ServerPlayer p = server.getPlayerList().getPlayers().get(0);
-				ServerLevel level = (ServerLevel) p.level();
-				Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(b -> b.is(Biomes.PLAINS) || b.is(Biomes.MEADOW), p.blockPosition(), 2000, 32, 64);
-				if (found != null) {
-					BlockPos at = found.getFirst();
-					level.getChunk(at);
-					int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
-					p.teleportTo(at.getX() + 0.5, y, at.getZ() + 0.5);
-				}
-			});
 			sp.getServer().runCommand("time set 1000");
 			sp.getServer().runCommand("weather clear");
 			ctx.waitTicks(40);
@@ -74,6 +54,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 			note(ctx, "she is in the world");
 			ctx.waitFor(mc -> { CompanionEntity a = ana(mc); return a != null && a.distanceTo(mc.player) < 6 && a.getDeltaMovement().horizontalDistance() < 0.01; }, 600);
 			ctx.waitTicks(20);
+			ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
 			faceAna(ctx);
 			ctx.waitTicks(10);
 			ctx.takeScreenshot("open-npc-1-she-walks-up");
@@ -81,7 +62,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 
 			// he walks off; she follows
 			turnAwayFromAna(ctx);
-			ctx.getInput().holdKeyFor(o -> o.keyUp, 90);
+			ctx.getInput().holdKeyFor(o -> o.keyUp, 70);
 			ctx.waitTicks(30);
 			faceAna(ctx);
 			ctx.waitTicks(5);
@@ -90,11 +71,11 @@ public class CompanionClientTest implements FabricClientGameTest {
 
 			// typed in chat: she waits
 			ctx.runOnClient(mc -> mc.player.connection.sendChat("wait here"));
-			ctx.waitFor(mc -> { CompanionEntity a = serverAna(sp); return a != null && a.mode() == CompanionEntity.Mode.STAY; }, 400);
+			waitServer(ctx, sp, CompanionEntity.Mode.STAY, 400);
 			ctx.waitTicks(10);
 			ctx.takeScreenshot("open-npc-3-asked-to-wait");
 			turnAwayFromAna(ctx);
-			ctx.getInput().holdKeyFor(o -> o.keyUp, 100);
+			ctx.getInput().holdKeyFor(o -> o.keyUp, 75);
 			ctx.waitTicks(20);
 			faceAna(ctx);
 			ctx.waitTicks(5);
@@ -103,11 +84,11 @@ public class CompanionClientTest implements FabricClientGameTest {
 
 			// typed in chat: she comes
 			ctx.runOnClient(mc -> mc.player.connection.sendChat("come here"));
-			ctx.waitFor(mc -> { CompanionEntity a = serverAna(sp); return a != null && a.mode() == CompanionEntity.Mode.COME; }, 400);
+			waitServer(ctx, sp, CompanionEntity.Mode.COME, 400);
 			ctx.waitTicks(25);
 			faceAna(ctx);
 			ctx.takeScreenshot("open-npc-5-she-comes");
-			ctx.waitFor(mc -> { CompanionEntity a = serverAna(sp); return a != null && a.mode() == CompanionEntity.Mode.FOLLOW; }, 600);
+			waitServer(ctx, sp, CompanionEntity.Mode.FOLLOW, 600);
 			ctx.waitTicks(20);
 			faceAna(ctx);
 			ctx.waitTicks(5);
@@ -137,6 +118,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 			return what + ": " + (a == null ? "not seen" : String.format(java.util.Locale.ROOT, "%.1f blocks away", a.distanceTo(mc.player)));
 		});
 		notes.add(line);
+		OpenNpc.LOG.info("[client test] {}", line);
 	}
 
 	private static void writeConfig(String url) {
@@ -166,8 +148,17 @@ public class CompanionClientTest implements FabricClientGameTest {
 		return l.isEmpty() ? null : l.get(0);
 	}
 
-	private static @Nullable CompanionEntity serverAna(TestSingleplayerContext sp) {
-		return sp.getServer().computeOnServer(server -> OpenNpc.manager() == null ? null : OpenNpc.manager().companion());
+	/** Waits (from the test thread) until her mode on the server is this one. */
+	private static void waitServer(ClientGameTestContext ctx, TestSingleplayerContext sp, CompanionEntity.Mode mode, int maxTicks) {
+		for (int i = 0; i < maxTicks; i++) {
+			String m = sp.getServer().computeOnServer(server -> {
+				CompanionEntity a = OpenNpc.manager() == null ? null : OpenNpc.manager().companion();
+				return a == null ? "" : a.mode().name();
+			});
+			if (m.equals(mode.name())) return;
+			ctx.waitTick();
+		}
+		throw new AssertionError("she did not get to " + mode + " within " + maxTicks + " ticks");
 	}
 
 	private static void faceAna(ClientGameTestContext ctx) {

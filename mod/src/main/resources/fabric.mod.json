@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "opennpc",
+	"version": "${version}",
+	"name": "Open NPC",
+	"description": "An AI companion for any Minecraft world. Bring your own AI.",
+	"authors": [
+		"The Open NPC contributors"
+	],
+	"contact": {
+		"sources": "https://github.com/Gmm2510/open-npc"
+	},
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"opennpc.OpenNpc"
+		],
+		"client": [
+			"opennpc.client.OpenNpcClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.1",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

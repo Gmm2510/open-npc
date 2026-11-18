@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "opennpc-test",
+	"version": "1.0.0",
+	"name": "Open NPC tests",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["opennpc.test.OpenNpcTestMod"],
+		"fabric-gametest": ["opennpc.test.CompanionGameTests"]
+	}
+}

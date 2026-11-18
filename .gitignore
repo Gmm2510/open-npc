@@ -3,3 +3,9 @@ config.json
 server/
 memory/
 *.log
+mod/.gradle/
+mod/build/
+mod/run/
+mod/bin/
+mod/.idea/
+mod/out/

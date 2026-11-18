@@ -88,4 +88,16 @@ stand-in AI move her (typed in chat, and through the wait door). Nothing in the 
 
 `tools/make_skin.py` draws her default skin.
 
+## Staying up to date with Minecraft
+
+`mod/versions.json` lists the Minecraft versions the mod is built and tested for; one code base builds for each
+(`./gradlew build -Pminecraft_version=... -Ploader_version=... -Pfabric_api_version=...`).
+
+A daily GitHub job (`.github/workflows/minecraft-update.yml`) checks Mojang's version list. When there is a new release that
+Fabric supports, it builds and tests the mod for it (the headless in-game tests, then the real game with the built jar). If
+everything passes, the version is added to `versions.json` and a GitHub Release with the jar goes up. If not, the attempt is kept
+on a branch named `update/mc-<version>` with the error in `mod/UPDATE-FAILED.md`, and an issue is opened; the fix comes back as a
+pull request. `node mod/tools/mc_update.mjs check` shows what the job would find. A manual run of the job is a dry run unless you
+untick "dry run".
+
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.

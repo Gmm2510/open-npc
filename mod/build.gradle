@@ -2,8 +2,12 @@ plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
-version = project.mod_version
+// One code base, built for each Minecraft version in versions.json (pass -Pminecraft_version=... -Pfabric_api_version=...
+// -Ploader_version=... for one that isn't the main one). The jar's name says which: open-npc-0.1.0+mc26.1.2.jar.
+version = "${project.mod_version}+mc${project.minecraft_version}"
 group = project.maven_group
+def mcParts = project.minecraft_version.tokenize('.')
+def minecraftDep = "~" + mcParts.take(2).join('.')
 
 base {
 	archivesName = project.archives_base_name
@@ -37,8 +41,9 @@ dependencies {
 processResources {
 	def version = project.version
 	inputs.property "version", version
+	inputs.property "minecraftDep", minecraftDep
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand "version": version, "minecraft_dep": minecraftDep
 	}
 }
 

@@ -20,7 +20,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import opennpc.brain.Brain;
 import opennpc.entity.CompanionEntity;
+import opennpc.jobs.BuildHouse;
 import opennpc.jobs.CraftJob;
+import opennpc.jobs.Farm;
 import opennpc.jobs.Fight;
 import opennpc.jobs.GatherWood;
 import opennpc.jobs.Give;
@@ -56,6 +58,9 @@ public final class CompanionBody implements Brain.Body {
 		a.put("make_tools", "craft a tool for yourself {item}, or for the owner {item, who: me}");
 		a.put("craft_item", "craft something {item, n}, for the owner {who: me}");
 		a.put("give_loot", "hand the owner items {item, n}; no item: everything you carry but your tools");
+		a.put("build_house", "build a small wooden house near the owner (gets the wood herself)");
+		a.put("farm", "make a small field and plant it {n: squares, up to 25}");
+		a.put("harvest", "pick the ripe crops around and plant them again");
 		ACTIONS = java.util.Collections.unmodifiableMap(a);
 	}
 
@@ -169,6 +174,9 @@ public final class CompanionBody implements Brain.Body {
 				if (c.count(which) == 0) return Brain.Result.no(name.isEmpty() ? "carrying_nothing" : "has no " + name);
 				job = new Give(c, byPlayer, which, args.has("n") ? num(args, 0) : 0, name.isEmpty() ? "what she carries" : name);
 			}
+			case "build_house" -> job = new BuildHouse(c, byPlayer);
+			case "farm" -> job = new Farm(c, byPlayer, num(args, 9), false);
+			case "harvest" -> job = new Farm(c, byPlayer, 25, true);
 			default -> { return Brain.Result.no("unknown"); }
 		}
 		if (job != null && !c.startJob(job)) return Brain.Result.no("busy with " + c.doing());

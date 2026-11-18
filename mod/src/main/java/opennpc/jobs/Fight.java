@@ -61,10 +61,12 @@ public final class Fight extends Work {
 			}
 		}
 		idle = 0;
+		// badly hurt: back off to the owner (a friend doesn't fight to the death)
+		if (c.getHealth() < 7) return done(kills > 0 ? "took down " + kills + ", then backed off hurt" : "backed off, hurt");
 		if (ticks > lastsTicks && !guard) return done("took down " + kills);
 		if (guard && ticks > lastsTicks) return done(kills > 0 ? "took down " + kills : "all quiet");
-		// too far from home ground: let it go
-		if (target.distanceTo(c) > 24 || (o != null && target.distanceTo(o) > 28)) { target = null; return Status.RUNNING; }
+		// too far from the owner: let it go
+		if (target.distanceTo(c) > 20 || (o != null && target.distanceTo(o) > 16)) { target = null; return Status.RUNNING; }
 		c.getLookControl().setLookAt(target, 30.0F, 30.0F);
 		if (c.isWithinMeleeAttackRange(target) && c.hasLineOfSight(target)) {
 			c.stopWalking();
@@ -80,8 +82,9 @@ public final class Fight extends Work {
 	}
 
 	private @Nullable LivingEntity nearest(ServerLevel level, @Nullable ServerPlayer o) {
-		Vec3 centre = guard && o != null ? o.position() : c.position();
-		double r = guard ? 12 : 16;
+		// only monsters near the owner (or near her when he's away)
+		Vec3 centre = o != null && o.level() == level ? o.position() : c.position();
+		double r = 12;
 		List<LivingEntity> l = level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(centre, centre).inflate(r, 6, r), Fight::fightable);
 		return l.stream().filter(c::hasLineOfSight).min(Comparator.comparingDouble(e -> e.distanceToSqr(centre))).orElse(null);
 	}

@@ -39,6 +39,9 @@ public class CompanionClientTest implements FabricClientGameTest {
 			if (user.contains("typed to you: \"come here\"")) return new StandIn.Reply("come", "coming!");
 			if (user.contains("typed to you: \"get some wood\"")) return new StandIn.Reply("gather_wood", "sure, getting wood", n(4));
 			if (user.contains("typed to you: \"mine some coal\"")) return new StandIn.Reply("mine_coal", "ok, I'll find some coal", n(1));
+			if (user.contains("typed to you: \"build a house\"")) return new StandIn.Reply("build_house", "a house? on it");
+			if (user.contains("typed to you: \"plant a field\"")) return new StandIn.Reply("farm", "let's grow some wheat", n(9));
+			if (user.contains("typed to you: \"harvest the wheat\"")) return new StandIn.Reply("harvest", "picking it now");
 			return new StandIn.Reply(null, null);
 		});
 		writeConfig(ai.url());
@@ -167,6 +170,80 @@ public class CompanionClientTest implements FabricClientGameTest {
 				return a != null && tableNear(a);
 			});
 			if (tableLeft) throw new AssertionError("she left her crafting table standing");
+
+			// ---- step 3: a house and a field. (The test hands her 20 logs, so the picture doesn't wait on her chopping 5 trees.)
+			sp.getServer().runOnServer(server -> OpenNpc.manager().companion().addToBag(new ItemStack(Items.OAK_LOG, 20)));
+			ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
+			ctx.runOnClient(mc -> mc.player.connection.sendChat("build a house"));
+			waitJob(ctx, sp, "building", 400);
+			waitServer(ctx, sp, a -> a.job() != null && a.job().progress().matches("[2-9][0-9]/.*"), 4000, "the walls going up");
+			ctx.waitTicks(10);
+			faceAna(ctx);
+			ctx.waitTicks(4);
+			ctx.takeScreenshot("open-npc-13-she-builds-a-house");
+			waitServer(ctx, sp, a -> a.job() == null, 6000, "the house to be done");
+			int[] door = sp.getServer().computeOnServer(server -> {
+				CompanionEntity a = OpenNpc.manager().companion();
+				for (BlockPos p : BlockPos.betweenClosed(a.blockPosition().offset(-16, -3, -16), a.blockPosition().offset(16, 3, 16))) {
+					if (a.level().getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.DoorBlock) return new int[] {p.getX(), p.getY(), p.getZ()};
+				}
+				return null;
+			});
+			if (door == null) throw new AssertionError("no door: the house isn't there");
+			// (the camera goes to the door's side, a few steps out, to see the front)
+			String facing = sp.getServer().computeOnServer(server -> {
+				CompanionEntity a = OpenNpc.manager().companion();
+				var st = a.level().getBlockState(new BlockPos(door[0], door[1], door[2]));
+				return st.getValue(net.minecraft.world.level.block.DoorBlock.FACING).getName();
+			});
+			net.minecraft.core.Direction out = net.minecraft.core.Direction.byName(facing);
+			int fx = door[0] + out.getStepX() * 8, fz = door[2] + out.getStepZ() * 8;
+			if (sp.getServer().computeOnServer(server -> {
+				CompanionEntity a = OpenNpc.manager().companion();
+				return a.level().getBlockState(new BlockPos(fx, door[1], fz)).isAir();
+			})) {
+				sp.getServer().runCommand("tp @p " + fx + " " + door[1] + " " + fz + " facing " + door[0] + " " + (door[1] + 1) + " " + door[2]);
+			} else {
+				sp.getServer().runCommand("tp @p " + (door[0] - out.getStepX() * 8) + " " + door[1] + " " + (door[2] - out.getStepZ() * 8) + " facing " + door[0] + " " + (door[1] + 1) + " " + door[2]);
+			}
+			ctx.waitTicks(30);
+			sp.getClientLevel().waitForChunksRender();
+			lookAtBlock(ctx, door[0], door[1] + 1, door[2]);
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("open-npc-14-the-house");
+			note(ctx, "house: door at " + door[0] + " " + door[1] + " " + door[2]);
+
+			// a field: she makes a hoe from what's left and sows the seeds the test gives her
+			sp.getServer().runOnServer(server -> OpenNpc.manager().companion().addToBag(new ItemStack(Items.WHEAT_SEEDS, 9)));
+			ctx.runOnClient(mc -> mc.player.connection.sendChat("plant a field"));
+			waitJob(ctx, sp, "planting", 400);
+			waitServer(ctx, sp, a -> a.job() == null, 4000, "the field to be planted");
+			int[] crop = sp.getServer().computeOnServer(server -> {
+				CompanionEntity a = OpenNpc.manager().companion();
+				for (BlockPos p : BlockPos.betweenClosed(a.blockPosition().offset(-16, -3, -16), a.blockPosition().offset(16, 3, 16))) {
+					if (a.level().getBlockState(p).is(net.minecraft.world.level.block.Blocks.WHEAT)) return new int[] {p.getX(), p.getY(), p.getZ()};
+				}
+				return null;
+			});
+			if (crop == null) throw new AssertionError("no wheat planted");
+			lookAtBlock(ctx, crop[0], crop[1], crop[2]);
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("open-npc-15-the-field");
+			note(ctx, "field planted");
+
+			// ripe (the test grows it), then harvested and planted again
+			sp.getServer().runCommand("fill " + (crop[0] - 6) + " " + crop[1] + " " + (crop[2] - 6) + " " + (crop[0] + 6) + " " + crop[1] + " " + (crop[2] + 6) + " minecraft:wheat[age=7] replace minecraft:wheat");
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("open-npc-16-ripe-wheat");
+			ctx.runOnClient(mc -> mc.player.connection.sendChat("harvest the wheat"));
+			waitJob(ctx, sp, "harvesting", 400);
+			waitServer(ctx, sp, a -> a.job() == null, 4000, "the harvest");
+			lookAtBlock(ctx, crop[0], crop[1], crop[2]);
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("open-npc-17-harvested-and-replanted");
+			int wheat = sp.getServer().computeOnServer(server -> OpenNpc.manager().companion().countItem(Items.WHEAT));
+			note(ctx, "harvest: she has " + wheat + " wheat");
+			if (wheat < 1) throw new AssertionError("she harvested nothing");
 		}
 		ai.close();
 		OpenNpc.LOG.info("[client test] {}", String.join(" | ", notes));
@@ -268,6 +345,14 @@ public class CompanionClientTest implements FabricClientGameTest {
 			float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90;
 			float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)));
 			return new float[] {yaw, pitch + 8};
+		});
+		ctx.getInput().lookAt(yp[0], yp[1]);
+	}
+
+	private static void lookAtBlock(ClientGameTestContext ctx, int x, int y, int z) {
+		float[] yp = ctx.computeOnClient(mc -> {
+			double dx = x + 0.5 - mc.player.getX(), dz = z + 0.5 - mc.player.getZ(), dy = y + 0.5 - mc.player.getEyeY();
+			return new float[] {(float) Math.toDegrees(Math.atan2(dz, dx)) - 90, (float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)))};
 		});
 		ctx.getInput().lookAt(yp[0], yp[1]);
 	}

@@ -10,7 +10,8 @@
 		],
 		"fabric-gametest": [
 			"opennpc.test.CompanionGameTests",
-			"opennpc.test.JobGameTests"
+			"opennpc.test.JobGameTests",
+			"opennpc.test.BuildFarmGameTests"
 		],
 		"fabric-client-gametest": [
 			"opennpc.test.CompanionClientTest"

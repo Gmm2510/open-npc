@@ -51,12 +51,18 @@ public class CompanionGameTests {
 
 	static Scene scene(GameTestHelper h, double ownerX, double ownerZ, double anaX, double anaZ) {
 		ServerLevel level = h.getLevel();
+		// (no monsters wandering into tests that aren't about fighting; the fight test turns them back on)
+		level.getServer().setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
 		// leftovers from an earlier test go first
 		for (Entity e : level.getEntities((Entity) null, new AABB(h.absolutePos(new BlockPos(-60, -10, -60)).getCenter(), h.absolutePos(new BlockPos(80, 20, 80)).getCenter()), e -> e instanceof CompanionEntity)) e.discard();
+		// (stand-in players an earlier test left behind could be in her way)
+		for (ServerPlayer old : new ArrayList<>(level.getServer().getPlayerList().getPlayers())) {
+			if (old.getGameProfile().name().equals("test-mock-player")) level.getServer().getPlayerList().remove(old);
+		}
 		for (int x = -16; x <= 27; x++) {
 			for (int z = -16; z <= 27; z++) {
 				h.setBlock(x, -1, z, Blocks.STONE);
-				for (int y = 0; y <= 7; y++) h.setBlock(x, y, z, Blocks.AIR);
+				for (int y = 0; y <= 9; y++) h.setBlock(x, y, z, Blocks.AIR);   // (up past the test's barrier ceiling)
 			}
 		}
 		forceFloor(h, true);

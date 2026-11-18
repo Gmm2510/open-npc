@@ -7,8 +7,8 @@ OpenAI-style "chat completions with tools" API.
 This is the Fabric mod. The side program in the folder above (`src/`, Node and Mineflayer) is the other way to run her: as a
 second player in a private world. Both ask the AI the same way.
 
-**Status: step 2.** Following, coming, staying, the AI link, and jobs: chopping, mining, crafting, fighting, picking up and
-handing you things. Building and farming come next.
+**Status: step 3.** Following, coming, staying, the AI link, jobs (chopping, mining, crafting, fighting, picking up and
+handing you things), building a small house, and farming.
 
 ## Install
 
@@ -65,6 +65,14 @@ as hers. What she can do:
 - **Items:** `pick_up` (what's lying around), `give_loot {item, n}` (walks over and tosses them to you; no item: everything but
   her tools). She picks up her own drops and what you toss her, never her own tosses.
 
+- **Building:** `build_house`: a small wooden house near you (5 by 5, walls three high, two windows, a flat roof, the door on
+  the side facing you, log corners when she has the logs to spare). She picks a level spot of natural ground with open sky
+  (never on anything built), clears the grass and bumps, fills dips, gets the wood herself (chops, crafts planks and a door),
+  builds the walls layer by layer walking round, the roof from the edges in, and hangs the door last, from outside.
+- **Farming:** `farm {n}` (a field of n squares, 9 to start, up to 25): makes a wooden hoe if she has none, uses her seeds (or
+  breaks grass for some), picks open grass or dirt near water if there's some close, tills and sows. `harvest`: picks the ripe
+  crops around, collects them, and sows again (re-tilling a square that went back to dirt).
+
 She tells the AI when a job starts, finishes or fails, and what she carries, so it can say how it went and choose what's next.
 
 Commands (her owner only): `/opennpc` (how she is), `/opennpc come`, `/opennpc follow`, `/opennpc stay`, `/opennpc wave`,
@@ -103,8 +111,10 @@ The in-game tests check that she spawns, follows to a friendly distance, keeps u
 stops, no snapping turns, never faster than a running player), comes, stays, catches up from far away, and that answers from a
 stand-in AI move her (typed in chat, and through the wait door). For the jobs: she chops a tree and hands over the logs, gets
 through a bushy tree's leaves, leaves a log wall (a build) alone, mines coal she can see, crafts a pickaxe at a table she packs
-up after, fights a monster, picks up and hands over items, and a job the AI asked for makes it ask again when it's done. The
-real-game test does the same in a new world: following, chat, and chopping, crafting, mining and handing over. Nothing in the
+up after, fights a monster, picks up and hands over items, and a job the AI asked for makes it ask again when it's done. For building
+and farming: she builds a whole house on grass (crafting her own door), makes a hoe and plants a field, and harvests and
+replants. The real-game test does the same in a new world: following, chat, chopping, crafting, mining and handing over,
+building a house, planting a field and harvesting it. Nothing in the
 tests reaches the network.
 
 `tools/make_skin.py` draws her default skin.

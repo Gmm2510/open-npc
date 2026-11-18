@@ -600,6 +600,12 @@ public class CompanionEntity extends PathfinderMob implements InventoryCarrier {
 		if (!best.isEmpty()) hold(best);
 	}
 
+	/** Takes something matching in hand (a block to place, a hoe), if she has it. */
+	public void holdMatching(Predicate<ItemStack> p) {
+		if (p.test(this.getMainHandItem())) return;
+		for (ItemStack s : bagStacks()) if (p.test(s)) { hold(s); return; }
+	}
+
 	private static int tier(ItemStack s) {
 		String id = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
 		if (id.startsWith("netherite")) return 7;

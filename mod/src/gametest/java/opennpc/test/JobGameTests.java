@@ -158,13 +158,15 @@ public class JobGameTests {
 
 	@GameTest(environment = "opennpc-test:job_fight", maxTicks = 1200)
 	public void fights_a_monster(GameTestHelper h) {
-		Difficulty before = h.getLevel().getDifficulty();
-		h.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 		List<String> ev = new ArrayList<>();
 		var s = scene(h, ev);
+		Difficulty before = h.getLevel().getDifficulty();
+		h.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 		s.ana().addToBag(new ItemStack(Items.IRON_SWORD));
-		var husk = h.spawn(EntityType.HUSK, new Vec3(10, 0, 10));
+		var husk = h.spawn(EntityType.HUSK, new Vec3(8, 0, 8));
 		husk.setNoAi(true);   // (a target that stands still, so the test is about her)
+		// (only this husk: any other monster around goes)
+		for (var e : s.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, s.owner().getBoundingBox().inflate(48), e -> e instanceof net.minecraft.world.entity.monster.Enemy && e != husk)) e.discard();
 		h.runAfterDelay(2, () -> s.ana().startJob(new Fight(s.ana(), true, null, false)));
 		when(h, s, () -> {
 			OpenNpc.LOG.info("[test] fight: husk alive {}, she holds {}, events {}", husk.isAlive(), s.ana().getMainHandItem(), ev);

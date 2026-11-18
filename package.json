@@ -1,0 +1,18 @@
+{
+  "name": "open-npc",
+  "version": "0.1.0",
+  "description": "An AI companion that joins your Minecraft Java world as a real player and does what you ask: chops, mines, crafts, builds, fights and follows. Bring your own AI.",
+  "main": "src/index.js",
+  "bin": { "open-npc": "src/index.js" },
+  "scripts": { "start": "node src/index.js", "test": "node test/run.js" },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "dependencies": {
+    "minecraft-data": "^3.100.0",
+    "mineflayer": "^4.39.0",
+    "mineflayer-collectblock": "^1.6.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "mineflayer-pvp": "^1.3.2",
+    "vec3": "^0.1.10"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "ai": {
+    "url": "http://127.0.0.1:41751/v1",
+    "key": "",
+    "model": ""
+  },
+  "npc": {
+    "name": "",
+    "owner": "",
+    "speakInChat": null,
+    "freeWill": true,
+    "followGap": 6
+  },
+  "world": {
+    "mode": "local",
+    "acceptEula": false,
+    "version": "26.1",
+    "difficulty": "easy",
+    "dir": "server",
+    "host": "localhost",
+    "port": 25565
+  }
+}

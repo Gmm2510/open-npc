@@ -41,6 +41,7 @@ public final class CompanionBody implements Brain.Body {
 	private final Consumer<String> chat;
 	private final Function<ServerPlayer, @Nullable CompanionEntity> summon;
 	public Runnable onCommand = () -> {};
+	public Consumer<CompanionEntity> afterCommand = c -> {};
 
 	public CompanionBody(Supplier<@Nullable CompanionEntity> companion, Supplier<@Nullable ServerPlayer> owner, Supplier<String> name,
 		Supplier<String> ownerName, Consumer<String> chat, Function<ServerPlayer, @Nullable CompanionEntity> summon) {
@@ -109,6 +110,7 @@ public final class CompanionBody implements Brain.Body {
 			case "emote" -> c.emote();
 			default -> { return Brain.Result.no("unknown"); }
 		}
+		afterCommand.accept(c);
 		return Brain.Result.started();
 	}
 

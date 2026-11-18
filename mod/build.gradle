@@ -57,3 +57,20 @@ jar {
 		rename { "LICENSE_open-npc" }
 	}
 }
+
+// The built jar in a real (production) game, the way a player installs it: the jar and Fabric API in a mods folder.
+// With the test mod's jar too, the client test runs in it and takes screenshots (build/run/clientGameTest/screenshots).
+dependencies {
+	productionRuntimeMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+def gametestJar = tasks.register("gametestJar", Jar) {
+	from sourceSets.gametest.output
+	archiveClassifier = "gametest"
+}
+
+tasks.register("runProductionClientGameTest", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+	jvmArgs.add("-Dfabric.client.gametest")
+	mods.from(gametestJar)
+	runDir = layout.projectDirectory.dir("run/production")
+}

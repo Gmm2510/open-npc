@@ -3,6 +3,13 @@
 An AI companion for Minecraft Java Edition that joins your world as a real player and does what you ask: chops trees, mines,
 crafts, smelts, builds, farms, fights and follows you around. You bring the AI. Free and open source (MIT).
 
+There are two ways to run it:
+
+- **The mod** (`mod/`, Fabric, Minecraft 26.1.2): she lives in any world you open, single-player included. Step 1 so far:
+  follows, comes, stays, and the AI link. See [mod/README.md](mod/README.md).
+- **The side program** (this folder, Node and Mineflayer): it joins a private world on your PC as a second player and has the
+  full set of jobs below.
+
 You talk to it in the game chat ("get me 20 oak logs", "build a hut here", "come here", "mine some iron"). The AI decides what
 to do; the companion's body does the work itself: it finds the trees, walks there, picks the right tool, and hands you the logs.
 

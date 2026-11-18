@@ -43,14 +43,16 @@ async function main() {
   const npc = c.npc || {};
   const world = c.world || {};
 
-  // Who answers at the AI address. Heyura (an app on this PC) speaks for the companion in its own voice, so nothing is typed in chat.
+  // Who answers at the AI address. An app on this PC with the wait door (GET <address>/wait, a voice app) speaks for the companion
+  // in its own voice, so nothing is typed in chat, and its model name is the companion's name.
   const hello = await getJson(url, key);
   const models = await getJson(`${url}/models`, key);
-  const heyura = !!(hello && hello.name === 'Heyura');
+  const door = await getJson(`${url}/wait`, key);
+  const voiceApp = !!(door && typeof door.words === 'number');
   const model = ai.model || (models && models.data && models.data[0] && models.data[0].id) || '';
-  const name = String(flag('name') || npc.name || (heyura && model ? model.charAt(0).toUpperCase() + model.slice(1) : 'Companion'));
-  const speakInChat = npc.speakInChat == null ? !heyura : !!npc.speakInChat;
-  log('ai')(`${url}: ${hello ? (heyura ? 'Heyura is running' : 'answering') : 'not answering yet (it will be asked again when needed)'}${model ? `, model ${model}` : ''}`);
+  const name = String(flag('name') || npc.name || (voiceApp && model ? model.charAt(0).toUpperCase() + model.slice(1) : 'Companion'));
+  const speakInChat = npc.speakInChat == null ? !voiceApp : !!npc.speakInChat;
+  log('ai')(`${url}: ${hello || models || door ? (voiceApp ? 'a voice app with the wait door is running' : 'answering') : 'not answering yet (it will be asked again when needed)'}${model ? `, model ${model}` : ''}`);
 
   // The world: a private server on this PC (offline mode, so the companion needs no account), or one you already run.
   let host = world.host || 'localhost', port = Number(world.port) || 25565;

@@ -35,6 +35,8 @@ public final class CompanionManager {
 		String owner = "";
 		String ownerName = "";
 		String companion = "";
+		/** Her last known mode, so a companion told to stay somewhere far away is not brought back. */
+		String mode = "FOLLOW";
 	}
 
 	private final MinecraftServer server;
@@ -48,6 +50,7 @@ public final class CompanionManager {
 	private int lookIn = -1;          // ticks until it checks she is in the world
 	private int respawnIn = -1;
 	private int freeTicks = 0;
+	private int missing = 0;          // checks in a row (every 10 s) that she wasn't in the loaded world
 	private long lastHurtLine = 0;
 
 	public CompanionManager(MinecraftServer server, Path configFile) {
@@ -68,6 +71,7 @@ public final class CompanionManager {
 			return o != null ? o.getGameProfile().name() : state.ownerName;
 		}, this::say, this::summon);
 		this.body.onCommand = () -> freeTicks = 0;
+		this.body.afterCommand = c -> { String m = c.mode() == CompanionEntity.Mode.STAY ? "STAY" : "FOLLOW"; if (!m.equals(state.mode)) { state.mode = m; saveState(); } };
 		this.brain = newBrain();
 	}
 
@@ -255,6 +259,17 @@ public final class CompanionManager {
 			}
 		}
 		CompanionEntity c = companion();
+		// every 10 s: she is with the owner, unless she was told to stay (an owner who died and came back far away, or
+		// went somewhere her ground stopped loading, finds her walking up a moment later)
+		if (server.getTickCount() % 200 == 0 && lookIn <= 0 && respawnIn <= 0) {
+			if (c != null) {
+				missing = 0;
+				if (!c.mode().name().equals(state.mode)) { state.mode = c.mode() == CompanionEntity.Mode.STAY ? "STAY" : "FOLLOW"; saveState(); }
+			} else if (!"STAY".equals(state.mode) && !state.companion.isEmpty() && ++missing >= 2) {
+				missing = 0;
+				summon(o);
+			}
+		}
 		if (c != null && c.mode() == CompanionEntity.Mode.FOLLOW && cfg.freeTimeMinutes > 0 && !brain.busy()) {
 			if (++freeTicks >= cfg.freeTimeMinutes * 1200) {
 				freeTicks = 0;

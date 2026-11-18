@@ -5,7 +5,14 @@
 	"name": "Open NPC tests",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["opennpc.test.OpenNpcTestMod"],
-		"fabric-gametest": ["opennpc.test.CompanionGameTests"]
+		"main": [
+			"opennpc.test.OpenNpcTestMod"
+		],
+		"fabric-gametest": [
+			"opennpc.test.CompanionGameTests"
+		],
+		"fabric-client-gametest": [
+			"opennpc.test.CompanionClientTest"
+		]
 	}
 }

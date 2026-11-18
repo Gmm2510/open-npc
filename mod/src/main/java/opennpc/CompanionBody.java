@@ -13,8 +13,21 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.level.Level;
+import java.util.function.Predicate;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import opennpc.brain.Brain;
 import opennpc.entity.CompanionEntity;
+import opennpc.jobs.CraftJob;
+import opennpc.jobs.Fight;
+import opennpc.jobs.GatherWood;
+import opennpc.jobs.Give;
+import opennpc.jobs.ItemNames;
+import opennpc.jobs.Mine;
+import opennpc.jobs.PickUp;
+import opennpc.jobs.Work;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,6 +44,18 @@ public final class CompanionBody implements Brain.Body {
 		a.put("stay", "wait right here until told to follow or come");
 		a.put("emote", "a little wave and a hop");
 		a.put("stop_task", "stop what you are doing and follow");
+		a.put("attack", "fight the nearest hostile mob");
+		a.put("guard", "guard the owner for two minutes");
+		a.put("pick_up", "pick up items lying nearby");
+		a.put("gather_wood", "chop trees and bring the owner the logs {n, wood}");
+		a.put("mine_stone", "mine stone that shows, on hillsides or in caves {n}");
+		a.put("mine_coal", "mine coal and bring it {n}");
+		a.put("mine_iron", "mine iron ore and bring it {n}");
+		a.put("mine_gold", "mine gold ore and bring it {n}");
+		a.put("mine_diamonds", "mine diamonds and bring them {n}");
+		a.put("make_tools", "craft a tool for yourself {item}, or for the owner {item, who: me}");
+		a.put("craft_item", "craft something {item, n}, for the owner {who: me}");
+		a.put("give_loot", "hand the owner items {item, n}; no item: everything you carry but your tools");
 		ACTIONS = java.util.Collections.unmodifiableMap(a);
 	}
 
@@ -80,13 +105,26 @@ public final class CompanionBody implements Brain.Body {
 		if (o == null) s.put(on.isEmpty() ? "the player" : on, "not online");
 		else if (o.level() != level) s.put("distance to " + (on.isEmpty() ? "the player" : on), "in another dimension");
 		else s.put("distance to " + (on.isEmpty() ? "the player" : on), Math.round(c.distanceTo(o)) + " blocks");
-		List<String> hostile = new ArrayList<>();
+		Map<String, Integer> hostile = new LinkedHashMap<>();
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, c.getBoundingBox().inflate(16), e -> e instanceof Enemy && e.isAlive())) {
-			if (hostile.size() >= 4) break;
-			hostile.add(e.getType().getDescription().getString().toLowerCase());
+			hostile.merge(e.getType().getDescription().getString().toLowerCase(), 1, Integer::sum);
 		}
-		if (!hostile.isEmpty()) s.put("hostile mobs nearby", String.join(", ", hostile));
+		if (!hostile.isEmpty()) {
+			List<String> h = new ArrayList<>();
+			hostile.forEach((k, v) -> h.add(v == 1 ? "a " + k : v + " " + k + "s"));
+			s.put("hostile mobs nearby", String.join(", ", h));
+		}
 		s.put("doing now", c.doing());
+		List<String> tools = new ArrayList<>();
+		List<String> carry = new ArrayList<>();
+		Map<net.minecraft.world.item.Item, Integer> bag = c.bag();
+		for (Map.Entry<net.minecraft.world.item.Item, Integer> e : bag.entrySet()) {
+			String name = opennpc.jobs.Crafter.name(e.getKey());
+			if (opennpc.jobs.CraftJob.isTool(new net.minecraft.world.item.ItemStack(e.getKey()))) tools.add(name);
+			else carry.add(e.getValue() + " " + name);
+		}
+		s.put("your tools", tools.isEmpty() ? "none" : String.join(", ", tools));
+		s.put("carrying", carry.isEmpty() ? "nothing" : String.join(", ", carry.subList(0, Math.min(8, carry.size()))));
 		s.put("your height (y)", String.valueOf(c.getBlockY()));
 		if (level.dimension() == Level.NETHER) s.put("where you are", "the Nether");
 		else if (level.dimension() == Level.END) s.put("where you are", "the End");
@@ -103,13 +141,37 @@ public final class CompanionBody implements Brain.Body {
 			c = summon.apply(o);
 			if (c == null) return Brain.Result.no("no_room_near_you");
 		}
+		Work job = null;
 		switch (action) {
 			case "follow", "stop_task" -> c.setMode(CompanionEntity.Mode.FOLLOW);
 			case "come" -> c.setMode(CompanionEntity.Mode.COME);
 			case "stay" -> c.setMode(CompanionEntity.Mode.STAY);
 			case "emote" -> c.emote();
+			case "attack" -> job = new Fight(c, byPlayer, null, false);
+			case "guard" -> job = new Fight(c, byPlayer, null, true);
+			case "pick_up" -> job = new PickUp(c, byPlayer);
+			case "gather_wood" -> job = new GatherWood(c, byPlayer, num(args, 8), wood(str(args, "wood") + " " + str(args, "item")), true);
+			case "mine_stone" -> job = new Mine(c, byPlayer, Mine.Kind.STONE, num(args, 8), false);
+			case "mine_coal" -> job = new Mine(c, byPlayer, Mine.Kind.COAL, num(args, 4), true);
+			case "mine_iron" -> job = new Mine(c, byPlayer, Mine.Kind.IRON, num(args, 4), true);
+			case "mine_gold" -> job = new Mine(c, byPlayer, Mine.Kind.GOLD, num(args, 4), true);
+			case "mine_diamonds" -> job = new Mine(c, byPlayer, Mine.Kind.DIAMONDS, num(args, 2), true);
+			case "make_tools", "craft_item" -> {
+				String name = str(args, "item");
+				Item it = name.isEmpty() && action.equals("make_tools") ? (c.count(st -> st.is(ItemTags.STONE_TOOL_MATERIALS)) >= 3 ? Items.STONE_PICKAXE : Items.WOODEN_PICKAXE) : ItemNames.item(name);
+				if (it == null) return Brain.Result.no(name.isEmpty() ? "no_item_named" : "doesn't know " + name);
+				job = new CraftJob(c, byPlayer, it, action.equals("make_tools") ? 1 : num(args, 1), "me".equals(str(args, "who")));
+			}
+			case "give_loot" -> {
+				String name = str(args, "item");
+				Predicate<ItemStack> which = name.isEmpty() ? st -> !CraftJob.isTool(st) : ItemNames.matcher(name);
+				if (which == null) return Brain.Result.no("doesn't know " + name);
+				if (c.count(which) == 0) return Brain.Result.no(name.isEmpty() ? "carrying_nothing" : "has no " + name);
+				job = new Give(c, byPlayer, which, args.has("n") ? num(args, 0) : 0, name.isEmpty() ? "what she carries" : name);
+			}
 			default -> { return Brain.Result.no("unknown"); }
 		}
+		if (job != null && !c.startJob(job)) return Brain.Result.no("busy with " + c.doing());
 		afterCommand.accept(c);
 		return Brain.Result.started();
 	}
@@ -117,6 +179,23 @@ public final class CompanionBody implements Brain.Body {
 	@Override
 	public void say(String text) {
 		chat.accept(text);
+	}
+
+	static int num(JsonObject args, int dflt) {
+		try { return args.has("n") ? Math.max(1, Math.min(640, (int) Math.round(args.get("n").getAsDouble()))) : dflt; } catch (Exception e) { return dflt; }
+	}
+
+	static String str(JsonObject args, String k) {
+		try { return args.has(k) ? args.get(k).getAsString().trim().toLowerCase() : ""; } catch (Exception e) { return ""; }
+	}
+
+	static final List<String> WOODS = List.of("dark_oak", "pale_oak", "oak", "spruce", "birch", "jungle", "acacia", "mangrove", "cherry", "crimson", "warped");
+
+	/** "birch logs" -> "birch"; anything else -> "" (any wood). */
+	static String wood(String s) {
+		String t = s.toLowerCase().replace(' ', '_');
+		for (String w : WOODS) if (t.contains(w)) return w;
+		return "";
 	}
 
 	/** True when the level the companion is in is this one (for tests and checks). */

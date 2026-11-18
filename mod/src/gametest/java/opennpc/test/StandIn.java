@@ -21,7 +21,9 @@ import java.util.function.Function;
  * app serves it. reply: the question's user text -> what to do and say. No network, no cost.
  */
 final class StandIn implements AutoCloseable {
-	record Reply(String action, String text) {}
+	record Reply(String action, String text, JsonObject args) {
+		Reply(String action, String text) { this(action, text, new JsonObject()); }
+	}
 
 	final List<JsonObject> seen = new CopyOnWriteArrayList<>();
 	private final HttpServer server;
@@ -93,7 +95,7 @@ final class StandIn implements AutoCloseable {
 		if (r.action() != null) {
 			JsonObject args = new JsonObject();
 			args.addProperty("action", r.action());
-			args.add("args", new JsonObject());
+			args.add("args", r.args() == null ? new JsonObject() : r.args());
 			JsonObject fn = new JsonObject();
 			fn.addProperty("name", "act");
 			fn.addProperty("arguments", args.toString());

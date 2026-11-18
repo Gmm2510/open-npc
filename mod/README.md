@@ -7,8 +7,8 @@ OpenAI-style "chat completions with tools" API.
 This is the Fabric mod. The side program in the folder above (`src/`, Node and Mineflayer) is the other way to run her: as a
 second player in a private world. Both ask the AI the same way.
 
-**Status: step 1.** Following, coming, staying and the AI link work. Jobs (chopping, mining, crafting, fighting, handing you
-things), building and farming come next.
+**Status: step 2.** Following, coming, staying, the AI link, and jobs: chopping, mining, crafting, fighting, picking up and
+handing you things. Building and farming come next.
 
 ## Install
 
@@ -47,8 +47,25 @@ The first start writes `config/opennpc.json` in the game folder:
 
 ## Talking to her
 
-Type in the game chat. She asks the AI, which answers with the `act` tool (`follow`, `come`, `stay`, `emote`, `stop_task`)
-and, if it likes, a short line that shows in chat as hers.
+Type in the game chat. She asks the AI, which answers with the `act` tool and, if it likes, a short line that shows in chat
+as hers. What she can do:
+
+- **Moving:** `follow`, `come`, `stay`, `emote` (a wave and a hop), `stop_task`.
+- **Wood:** `gather_wood {n, wood}`: finds real trees (logs with natural leaves, never the logs of a build), knocks low leaves
+  out of the way, chops the trunk as high as she can reach, picks up the logs, and hands them to you.
+- **Mining:** `mine_stone`, `mine_coal`, `mine_iron`, `mine_gold`, `mine_diamonds {n}`: only what shows (hillsides, caves, the
+  surface) at her level or above; she never digs straight down and never digs through blocks to reach something hidden. With
+  no pickaxe she makes one first: chops wood, sets down a crafting table, crafts, packs the table up again (and mines stone for
+  a stone pickaxe when iron needs one). Iron, gold and diamonds need an iron pickaxe, which you hand her for now (no furnace yet).
+- **Crafting:** `make_tools {item}`, `craft_item {item, n}`: any crafting recipe in the game, from what she carries (logs into
+  planks into sticks and so on); small ones in her hands, big ones at a table (one nearby, or her own she sets down and picks
+  back up). `{who: "me"}` hands it to you.
+- **Fighting:** `attack` (the nearest hostile mob), `guard` (two minutes around you); she fights back when a monster hits her.
+  Never creepers up close, never endermen, never players or animals.
+- **Items:** `pick_up` (what's lying around), `give_loot {item, n}` (walks over and tosses them to you; no item: everything but
+  her tools). She picks up her own drops and what you toss her, never her own tosses.
+
+She tells the AI when a job starts, finishes or fails, and what she carries, so it can say how it went and choose what's next.
 
 Commands (her owner only): `/opennpc` (how she is), `/opennpc come`, `/opennpc follow`, `/opennpc stay`, `/opennpc wave`,
 `/opennpc summon` (bring her to you), `/opennpc name <name>`, `/opennpc gap <blocks>`, `/opennpc reload` (read the settings again).
@@ -84,7 +101,11 @@ Needs Java 25.
 
 The in-game tests check that she spawns, follows to a friendly distance, keeps up with a walking player smoothly (no sudden
 stops, no snapping turns, never faster than a running player), comes, stays, catches up from far away, and that answers from a
-stand-in AI move her (typed in chat, and through the wait door). Nothing in the tests reaches the network.
+stand-in AI move her (typed in chat, and through the wait door). For the jobs: she chops a tree and hands over the logs, gets
+through a bushy tree's leaves, leaves a log wall (a build) alone, mines coal she can see, crafts a pickaxe at a table she packs
+up after, fights a monster, picks up and hands over items, and a job the AI asked for makes it ask again when it's done. The
+real-game test does the same in a new world: following, chat, and chopping, crafting, mining and handing over. Nothing in the
+tests reaches the network.
 
 `tools/make_skin.py` draws her default skin.
 

@@ -9,7 +9,8 @@
 			"opennpc.test.OpenNpcTestMod"
 		],
 		"fabric-gametest": [
-			"opennpc.test.CompanionGameTests"
+			"opennpc.test.CompanionGameTests",
+			"opennpc.test.JobGameTests"
 		],
 		"fabric-client-gametest": [
 			"opennpc.test.CompanionClientTest"

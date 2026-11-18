@@ -150,7 +150,7 @@ public final class Brain {
 		String name = body.name(), owner = ownerName();
 		List<String> l = new ArrayList<>();
 		l.add("You control " + name + ", a companion character in a Minecraft survival world, playing alongside " + owner + ".");
-		l.add("You only decide what " + name + " does: call the act tool. The body walks and moves by itself and tells you how it went.");
+		l.add("You only decide what " + name + " does: call the act tool. The body walks, chops, mines, crafts, fights and hands things over by itself and tells you how it went.");
 		l.add("When " + owner + " asks for something, do it right away with act. Take the obvious reading of what they want.");
 		l.add("When nobody asked for anything, keep going with the current job, or on free time pick one useful thing, or do nothing. Don't start something new in the middle of a job unless " + owner + " asked.");
 		l.add(speakInChat()

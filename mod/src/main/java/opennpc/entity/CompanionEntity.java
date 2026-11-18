@@ -1,16 +1,27 @@
 package opennpc.entity;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -20,13 +31,20 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.InventoryCarrier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 import opennpc.OpenNpc;
+import opennpc.jobs.Fight;
+import opennpc.jobs.Work;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,7 +61,7 @@ import org.jspecify.annotations.Nullable;
  *  - Standing around, she looks at the owner, now and then glances at something else, and once in a while takes a step.
  *  - Way too far (or stuck far behind): she shows up near the owner, behind them, out of their view.
  */
-public class CompanionEntity extends PathfinderMob {
+public class CompanionEntity extends PathfinderMob implements InventoryCarrier {
 	public enum Mode { FOLLOW, STAY, COME }
 
 	private enum Move { IDLE, WALK, SHIFT }
@@ -70,6 +88,13 @@ public class CompanionEntity extends PathfinderMob {
 	private int noProgress = 0;
 	private int regenIn = 60;
 
+	// her bag and her jobs (step 2)
+	private final SimpleContainer inventory = new SimpleContainer(27);
+	private @Nullable Work job;
+	private final Map<BlockPos, Long> broke = new LinkedHashMap<>();   // blocks she broke lately (their drops are hers)
+	/** Where her events go (the AI link); the world's companion manager when not set. */
+	public @Nullable BiConsumer<String, Map<String, String>> events;
+
 	public CompanionEntity(EntityType<? extends PathfinderMob> type, Level level) {
 		super(type, level);
 		this.setPersistenceRequired();
@@ -87,7 +112,8 @@ public class CompanionEntity extends PathfinderMob {
 			.add(Attributes.MAX_HEALTH, 20.0)
 			.add(Attributes.MOVEMENT_SPEED, 0.32)
 			.add(Attributes.FOLLOW_RANGE, 48.0)
-			.add(Attributes.STEP_HEIGHT, 0.6);
+			.add(Attributes.STEP_HEIGHT, 0.6)
+			.add(Attributes.ATTACK_DAMAGE, 2.0);
 	}
 
 	@Override
@@ -114,6 +140,7 @@ public class CompanionEntity extends PathfinderMob {
 
 	/** follow: keep close (the default). come: walk over now. stay: wait right here until told otherwise. */
 	public void setMode(Mode m) {
+		stopJob(null);
 		this.mode = m;
 		this.spot = null;
 		this.repathIn = 0;
@@ -128,6 +155,10 @@ public class CompanionEntity extends PathfinderMob {
 
 	/** What she is doing, in plain words. */
 	public String doing() {
+		if (job != null) {
+			String pr = job.progress();
+			return job.label() + (pr.isEmpty() ? "" : " (" + pr + ")");
+		}
 		return switch (mode) {
 			case STAY -> "staying here";
 			case COME -> "coming over";
@@ -146,6 +177,8 @@ public class CompanionEntity extends PathfinderMob {
 		super.customServerAiStep(level);
 		if (emoteTicks > 0) emoteTick();
 		if (this.getHealth() < this.getMaxHealth() && --regenIn <= 0) { this.heal(1.0F); regenIn = 50; }
+		if (this.tickCount % 3 == 0) pickUpNearby(level);
+		if (job != null) { runJob(level); return; }
 		ServerPlayer owner = owner();
 		if (owner == null || !owner.isAlive() || owner.isSpectator()) {
 			stopWalking();
@@ -224,7 +257,7 @@ public class CompanionEntity extends PathfinderMob {
 			stopWalking();
 			mode = Mode.FOLLOW;
 			nextGlanceIn = 60 + this.random.nextInt(60);
-			if (OpenNpc.manager() != null) OpenNpc.manager().event("came_over", Map.of(), false);
+			emit("came_over", Map.of(), false);
 			return;
 		}
 		move = Move.WALK;
@@ -265,11 +298,13 @@ public class CompanionEntity extends PathfinderMob {
 		progressAt = this.position();
 	}
 
-	private void stopWalking() {
+	public void stopWalking() {
 		if (move != Move.IDLE || !this.getNavigation().isDone()) this.getNavigation().stop();
 		move = Move.IDLE;
 		spot = null;
 		speedNow = 0;
+		noProgress = 0;
+		progressAt = this.position();
 		this.setSprinting(false);
 	}
 
@@ -392,10 +427,239 @@ public class CompanionEntity extends PathfinderMob {
 		}
 	}
 
+	/** Swings her main arm (mining, chopping, hitting, crafting, tossing, waving). The one place that calls the game's swing. */
+	public void swingArm() {
+		this.swing(InteractionHand.MAIN_HAND);
+	}
+
 	private void emoteTick() {
 		emoteTicks--;
-		if (emoteTicks == 22 || emoteTicks == 14) this.swing(InteractionHand.MAIN_HAND);
+		if (emoteTicks == 22 || emoteTicks == 14) this.swingArm();
 		if (emoteTicks == 8 && this.onGround()) this.getJumpControl().jump();
+	}
+
+	// ---------------------------------------------------------------- jobs (step 2): chop, mine, craft, fight, hand over
+
+	public @Nullable Work job() { return job; }
+
+	/** Starts a job. One the owner asked for replaces whatever she was doing; one the AI picked by itself waits its turn. */
+	public boolean startJob(Work w) {
+		if (job != null && job.byPlayer && !w.byPlayer) return false;
+		stopJob(null);
+		mode = Mode.FOLLOW;
+		stopWalking();
+		job = w;
+		emit("task_started", Map.of("task", w.label()), false);
+		return true;
+	}
+
+	/** Stops her job (reason null: she was told to do something else, so nothing to report). */
+	public void stopJob(@Nullable String reason) {
+		if (job == null) return;
+		Work w = job;
+		job = null;
+		if (this.level() instanceof ServerLevel sl) w.cancel(sl);
+		stopWalking();
+		if (reason != null) { w.reason = reason; emit("task_failed", w.endData(), false); }
+	}
+
+	private void runJob(ServerLevel level) {
+		ServerPlayer o = owner();
+		if (o != null && o.level() == level && this.distanceTo(o) > 72) { stopJob("the owner went too far away"); return; }
+		Work w = job;
+		Work.Status st = w.tick(level);
+		if (st == Work.Status.RUNNING || job != w) return;
+		job = null;
+		stopWalking();
+		emit(st == Work.Status.DONE ? "task_done" : "task_failed", w.endData(), false);
+	}
+
+	/** Tells whoever listens (the AI link) what happened. */
+	public void emit(String event, Map<String, String> data, boolean high) {
+		if (events != null) events.accept(event, data);
+		else if (OpenNpc.manager() != null) OpenNpc.manager().event(event, data, high);
+	}
+
+	/** Walks toward a point the way she walks after the owner (eased speed, smooth turns). */
+	public void walkTo(Vec3 p, double speed) {
+		move = Move.WALK;
+		if (spot == null || spot.distanceToSqr(p) > 1.0 || --repathIn <= 0) {
+			spot = p;
+			repathIn = 15;
+			// (to the exact spot: the default stops a block short)
+			if (!this.getNavigation().moveTo(p.x, p.y, p.z, 0, Math.max(0.5, speedNow))) noProgress += 2;
+		}
+		easeSpeed(speed);
+		trackProgress();
+	}
+
+	/** A fresh start for the "stuck" count (a new thing to walk to). */
+	public void freshStart() {
+		noProgress = 0;
+		progressAt = this.position();
+		spot = null;
+	}
+
+	/** Ticks she has been trying to walk without getting anywhere. */
+	public int stuckFor() { return noProgress; }
+
+	public double horizontal(Vec3 p) { return horizontal(this.position(), p); }
+
+	/** A spot to stand at exactly this block (feet there), or null. */
+	public @Nullable Vec3 standableAt(ServerLevel level, BlockPos p) {
+		if (WalkNodeEvaluator.getPathTypeStatic(this, p) != PathType.WALKABLE) return null;
+		Vec3 at = Vec3.atBottomCenterOf(p);
+		if (!level.noCollision(this, this.getBoundingBox().move(at.subtract(this.position())))) return null;
+		return at;
+	}
+
+	/** One tick of following the owner (for guarding). */
+	public void followOwnerStep(ServerLevel level) {
+		ServerPlayer o = owner();
+		if (o != null && o.level() == level) follow(level, o, this.distanceTo(o));
+	}
+
+	// ---------------------------------------------------------------- her bag and her hands
+
+	@Override
+	public SimpleContainer getInventory() { return inventory; }
+
+	/** Everything she has: her bag and what's in her hands. */
+	public List<ItemStack> bagStacks() {
+		List<ItemStack> l = new ArrayList<>();
+		for (int i = 0; i < inventory.getContainerSize(); i++) if (!inventory.getItem(i).isEmpty()) l.add(inventory.getItem(i));
+		if (!this.getMainHandItem().isEmpty()) l.add(this.getMainHandItem());
+		if (!this.getOffhandItem().isEmpty()) l.add(this.getOffhandItem());
+		return l;
+	}
+
+	public Map<Item, Integer> bag() { return opennpc.jobs.Crafter.bag(bagStacks()); }
+
+	public int count(Predicate<ItemStack> p) {
+		int n = 0;
+		for (ItemStack s : bagStacks()) if (p.test(s)) n += s.getCount();
+		return n;
+	}
+
+	public int countItem(Item it) { return count(s -> s.is(it)); }
+
+	/** Takes up to n matching items out of her bag (what's in her hand last), as stacks. */
+	public List<ItemStack> take(Predicate<ItemStack> p, int n) {
+		List<ItemStack> out = new ArrayList<>();
+		int left = n;
+		for (int i = 0; i < inventory.getContainerSize() && left > 0; i++) {
+			ItemStack s = inventory.getItem(i);
+			if (s.isEmpty() || !p.test(s)) continue;
+			ItemStack part = s.split(Math.min(left, s.getCount()));
+			left -= part.getCount();
+			out.add(part);
+		}
+		ItemStack hand = this.getMainHandItem();
+		if (left > 0 && !hand.isEmpty() && p.test(hand)) {
+			ItemStack part = hand.split(Math.min(left, hand.getCount()));
+			left -= part.getCount();
+			out.add(part);
+			if (hand.isEmpty()) this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+		}
+		inventory.setChanged();
+		return out;
+	}
+
+	/** Puts something in her bag (what doesn't fit drops at her feet). */
+	public void addToBag(ItemStack s) {
+		ItemStack rest = inventory.addItem(s);
+		if (!rest.isEmpty() && this.level() instanceof ServerLevel sl) this.spawnAtLocation(sl, rest);
+	}
+
+	public boolean hasToolFor(BlockState state) {
+		for (ItemStack s : bagStacks()) if (s.isCorrectToolForDrops(state) && (state.requiresCorrectToolForDrops() || s.getDestroySpeed(state) > 1.0F)) return true;
+		return false;
+	}
+
+	/** Takes the best tool for this block in hand (the fastest one that gets the drops), and returns what she holds. */
+	public ItemStack holdBestFor(BlockState state) {
+		ItemStack best = ItemStack.EMPTY;
+		float bestScore = 1.0F;
+		for (ItemStack s : bagStacks()) {
+			boolean right = !state.requiresCorrectToolForDrops() || s.isCorrectToolForDrops(state);
+			float score = right ? s.getDestroySpeed(state) * (s.isCorrectToolForDrops(state) ? 10 : 1) : 0;
+			if (score > bestScore) { bestScore = score; best = s; }
+		}
+		if (!best.isEmpty()) hold(best);
+		return this.getMainHandItem();
+	}
+
+	/** Takes her best weapon in hand: a sword, else an axe, the better material first. */
+	public void holdWeapon() {
+		ItemStack best = ItemStack.EMPTY;
+		int bestRank = 0;
+		for (ItemStack s : bagStacks()) {
+			int rank = s.is(ItemTags.SWORDS) ? 20 + tier(s) : s.is(ItemTags.AXES) ? 10 + tier(s) : 0;
+			if (rank > bestRank) { bestRank = rank; best = s; }
+		}
+		if (!best.isEmpty()) hold(best);
+	}
+
+	private static int tier(ItemStack s) {
+		String id = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+		if (id.startsWith("netherite")) return 7;
+		if (id.startsWith("diamond")) return 6;
+		if (id.startsWith("iron")) return 5;
+		if (id.startsWith("copper")) return 4;
+		if (id.startsWith("stone")) return 3;
+		if (id.startsWith("golden")) return 2;
+		return 1;
+	}
+
+	private void hold(ItemStack s) {
+		ItemStack hand = this.getMainHandItem();
+		if (s == hand) return;
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			if (inventory.getItem(i) == s) {
+				inventory.setItem(i, hand.isEmpty() ? ItemStack.EMPTY : hand);
+				this.setItemSlot(EquipmentSlot.MAINHAND, s);
+				return;
+			}
+		}
+	}
+
+	/** A block she broke: what drops near it is hers to pick up. */
+	public void noteBroke(BlockPos p) {
+		long now = this.level().getGameTime();
+		broke.put(p.immutable(), now);
+		broke.values().removeIf(t -> now - t > 600);
+		while (broke.size() > 64) { Iterator<BlockPos> it = broke.keySet().iterator(); it.next(); it.remove(); }
+	}
+
+	public boolean brokeNear(Vec3 at, double r) {
+		long now = this.level().getGameTime();
+		for (Map.Entry<BlockPos, Long> e : broke.entrySet()) if (now - e.getValue() < 600 && Vec3.atCenterOf(e.getKey()).distanceTo(at) < r) return true;
+		return false;
+	}
+
+	/** Something she tossed herself (she never picks those back up). */
+	public boolean threw(ItemEntity e) {
+		Entity t = e.getOwner();
+		return t == this;
+	}
+
+	/** She picks up what she walks over, if it's hers: her own drops, things the owner tossed her, what her job is after. */
+	private void pickUpNearby(ServerLevel level) {
+		for (ItemEntity e : level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0, 0.5, 1.0), e -> e.isAlive() && !e.getItem().isEmpty() && !e.hasPickUpDelay())) {
+			if (threw(e)) continue;
+			Entity thrower = e.getOwner();
+			boolean mine = (ownerId != null && thrower != null && ownerId.equals(thrower.getUUID()))
+				|| (job != null ? job.wants(e) : brokeNear(e.position(), 4.0));
+			if (mine) InventoryCarrier.pickUpItem(level, this, this, e);
+		}
+	}
+
+	@Override
+	protected void dropCustomDeathLoot(ServerLevel level, DamageSource source, boolean killedByPlayer) {
+		for (ItemStack s : bagStacks()) this.spawnAtLocation(level, s.copy());
+		inventory.clearContent();
+		this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+		this.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
 	}
 
 	// ---------------------------------------------------------------- body things
@@ -405,8 +669,12 @@ public class CompanionEntity extends PathfinderMob {
 		Entity by = source.getEntity();
 		if (by != null && ownerId != null && ownerId.equals(by.getUUID())) return false;   // the owner's stray hits don't hurt her
 		boolean hurt = super.hurtServer(level, source, damage);
-		if (hurt && OpenNpc.manager() != null && this.isAlive()) {
+		if (hurt && OpenNpc.manager() != null && this.isAlive() && events == null) {
 			OpenNpc.manager().hurt(this, source);
+		}
+		// a monster went for her: she fights back (unless told to stay, or busy with a job the owner asked for)
+		if (hurt && this.isAlive() && by instanceof LivingEntity le && Fight.fightable(le) && mode != Mode.STAY && (job == null || !job.byPlayer)) {
+			startJob(new Fight(this, false, le, false));
 		}
 		return hurt;
 	}
@@ -428,6 +696,7 @@ public class CompanionEntity extends PathfinderMob {
 		super.addAdditionalSaveData(output);
 		if (ownerId != null) output.putString("open_npc_owner", ownerId.toString());
 		output.putString("open_npc_mode", mode == Mode.COME ? Mode.FOLLOW.name() : mode.name());
+		this.writeInventoryToTag(output);
 	}
 
 	@Override
@@ -436,6 +705,7 @@ public class CompanionEntity extends PathfinderMob {
 		String o = input.getStringOr("open_npc_owner", "");
 		try { ownerId = o.isEmpty() ? null : UUID.fromString(o); } catch (IllegalArgumentException e) { ownerId = null; }
 		try { mode = Mode.valueOf(input.getStringOr("open_npc_mode", "FOLLOW")); } catch (IllegalArgumentException e) { mode = Mode.FOLLOW; }
+		this.readInventoryFromTag(input);
 	}
 
 	// ---------------------------------------------------------------- small helpers

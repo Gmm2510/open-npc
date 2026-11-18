@@ -283,6 +283,7 @@ public final class CompanionManager {
 	// ---------------------------------------------------------------- events, in plain words for the AI
 
 	public void event(String event, Map<String, String> data, boolean high) {
+		if (event.startsWith("task_")) OpenNpc.LOG.info("[Open NPC] {} {}", event.replace('_', ' '), data);
 		brain.event(event, data, high);
 	}
 

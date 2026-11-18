@@ -56,7 +56,7 @@ public class CompanionGameTests {
 		for (int x = -16; x <= 27; x++) {
 			for (int z = -16; z <= 27; z++) {
 				h.setBlock(x, -1, z, Blocks.STONE);
-				for (int y = 0; y <= 3; y++) h.setBlock(x, y, z, Blocks.AIR);
+				for (int y = 0; y <= 7; y++) h.setBlock(x, y, z, Blocks.AIR);
 			}
 		}
 		forceFloor(h, true);

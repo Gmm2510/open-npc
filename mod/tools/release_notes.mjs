@@ -12,7 +12,19 @@ const rest = log.slice(at + 1);
 const next = rest.indexOf('\n## ', 4);
 const section = (next < 0 ? rest : rest.slice(0, next)).split('\n').slice(1).join('\n').trim();
 
-console.log(`${automatic ? `Built and tested automatically for Minecraft ${mc}.\n\n` : ''}${section}
+// A release page breaks lines where the text does, so lines wrapped for reading in an editor are joined back up: a line that
+// doesn't start something new (a list item, a heading) continues the one above it.
+function unwrap(md) {
+  const out = [];
+  for (const line of md.split('\n')) {
+    const prev = out.length ? out[out.length - 1] : '';
+    if (line.trim() && prev.trim() && !/^\s*([-*] |\d+\. |#)/.test(line)) out[out.length - 1] = `${prev} ${line.trim()}`;
+    else out.push(line);
+  }
+  return out.join('\n');
+}
+
+console.log(unwrap(`${automatic ? `Built and tested automatically for Minecraft ${mc}.\n\n` : ''}${section}
 
 ## Install
 
@@ -23,4 +35,4 @@ console.log(`${automatic ? `Built and tested automatically for Minecraft ${mc}.\
    [mod's README](https://github.com/Gmm2510/open-npc/blob/main/mod/README.md#settings)).
 
 She only talks to the AI address you set: she sends it what she sees around her, what she is doing, and what you type in the
-game chat. In multiplayer the server and every player need the mod.`);
+game chat. In multiplayer the server and every player need the mod.`));

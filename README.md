@@ -5,8 +5,9 @@ crafts, smelts, builds, farms, fights and follows you around. You bring the AI. 
 
 There are two ways to run it:
 
-- **The mod** (`mod/`, Fabric, Minecraft 26.1.2): she lives in any world you open, single-player included. Step 1 so far:
-  follows, comes, stays, and the AI link. See [mod/README.md](mod/README.md).
+- **The mod** (`mod/`, Fabric, Minecraft 26.1.2): she lives in any world you open, single-player included. She follows,
+  comes, stays, chops, mines, crafts, fights, hands you things, builds a small house and farms. Download it from the
+  [Releases page](https://github.com/Gmm2510/open-npc/releases); how to install and set it up is in [mod/README.md](mod/README.md).
 - **The side program** (this folder, Node and Mineflayer): it joins a private world on your PC as a second player and has the
   full set of jobs below.
 

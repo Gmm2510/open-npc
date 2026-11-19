@@ -5,7 +5,9 @@
 # GitHub Release with the jar goes up. If they fail, the attempt is kept on a branch named update/mc-<version> with the error in
 # mod/UPDATE-FAILED.md, and an issue is opened; a fix comes back as a pull request, and nothing goes out until it is merged.
 #
-# On every push and pull request that touches the mod: the mod is built and tested for every version in mod/versions.json.
+# On every push and pull request that touches the mod: the mod is built and tested for every version in mod/versions.json. On a
+# push to main, each version marked "release" whose tests pass gets a GitHub Release for the mod version in gradle.properties,
+# once (tag v<mod version>-mc<minecraft>, notes from mod/CHANGELOG.md, made by mod/tools/release.sh).
 name: Minecraft update
 
 on:
@@ -88,15 +90,9 @@ jobs:
             mod/build/libs/open-npc-*+mc${{ matrix.minecraft }}.jar
             mod/run/production/screenshots/
           if-no-files-found: ignore
-      - name: Release (versions added by the daily update, once)
-        if: matrix.release && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          MODV=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
-          TAG="v${MODV}-mc${{ matrix.minecraft }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then echo "$TAG is out already"; exit 0; fi
-          gh release create "$TAG" build/libs/open-npc-${MODV}+mc${{ matrix.minecraft }}.jar --target "$GITHUB_SHA" \
-            --title "Open NPC ${MODV} for Minecraft ${{ matrix.minecraft }}" \
-            --notes "Built and tested automatically for Minecraft ${{ matrix.minecraft }} with Fabric Loader ${{ matrix.loader }} and Fabric API ${{ matrix.fabric_api }}. Put the jar and Fabric API in your mods folder."
+      - name: Release (each mod version, once per Minecraft version marked for release)
+        if: matrix.release && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run))
+        run: bash tools/release.sh "${{ matrix.minecraft }}" "${{ matrix.loader }}" "${{ matrix.fabric_api }}" "$GITHUB_SHA"
 
   # A new Minecraft release that Fabric supports: try it.
   update:
@@ -146,11 +142,7 @@ jobs:
           git add versions.json
           git commit -m "Support Minecraft $MC (automatic update: built and tested)"
           git push origin HEAD:main
-          MODV=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
-          TAG="v${MODV}-mc${MC}"
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" "build/libs/open-npc-${MODV}+mc${MC}.jar" --target "$(git rev-parse HEAD)" \
-            --title "Open NPC ${MODV} for Minecraft ${MC}" \
-            --notes "Built and tested automatically for Minecraft ${MC} with Fabric Loader ${LOADER} and Fabric API ${API}. Put the jar and Fabric API in your mods folder."
+          bash tools/release.sh "$MC" "$LOADER" "$API" "$(git rev-parse HEAD)" automatic
       - name: "It does not work yet: keep the attempt on a branch for a fix"
         if: steps.try.outcome != 'success' && (github.event_name == 'schedule' || !inputs.dry_run)
         run: |

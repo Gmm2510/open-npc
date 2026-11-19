@@ -7,18 +7,22 @@ OpenAI-style "chat completions with tools" API.
 This is the Fabric mod. The side program in the folder above (`src/`, Node and Mineflayer) is the other way to run her: as a
 second player in a private world. Both ask the AI the same way.
 
-**Status: step 3.** Following, coming, staying, the AI link, jobs (chopping, mining, crafting, fighting, picking up and
-handing you things), building a small house, and farming.
+She can follow, come and stay, chop, mine, craft, fight, pick up and hand you things, build a small house, and farm. What's in
+each release: [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
 1. Minecraft Java Edition **26.1.2** with **Fabric Loader 0.20.1** or newer ([fabricmc.net/use](https://fabricmc.net/use)).
-2. Put these in the `mods` folder of that installation:
-   - `open-npc-<version>.jar` (from `build/libs/` after building, or a release)
-   - [Fabric API](https://modrinth.com/mod/fabric-api) for 26.1.2
-3. Start the game and open or make a world. She shows up a few seconds later, a few steps behind you.
+2. Download the newest `open-npc-<version>+mc26.1.2.jar` from the
+   [Releases page](https://github.com/Gmm2510/open-npc/releases) (or build it, below).
+3. Put it in the `mods` folder of that installation, with [Fabric API](https://modrinth.com/mod/fabric-api) for 26.1.2.
+4. Start the game once, then set your AI's address in `config/opennpc.json` (below) and open or make a world. She shows up a
+   few seconds later, a few steps behind you.
 
 In multiplayer the server and every player need the mod.
+
+**What leaves your PC:** the mod only talks to the AI address you set. Each question to it holds what she sees around her, what
+she is doing and carrying, and what you (her owner) typed in the game chat. It sends nothing anywhere else.
 
 ## Settings
 
@@ -117,7 +121,14 @@ replants. The real-game test does the same in a new world: following, chat, chop
 building a house, planting a field and harvesting it. Nothing in the
 tests reaches the network.
 
-`tools/make_skin.py` draws her default skin.
+`tools/make_skin.py` draws her default skin, and `tools/make_icon.py` the mod's icon from it.
+
+## Releases
+
+Releases are on the repo's [Releases page](https://github.com/Gmm2510/open-npc/releases), one jar per Minecraft version. To put
+out a new one: add a section for the new version to `CHANGELOG.md`, raise `mod_version` in `gradle.properties`, and push to
+`main`. The GitHub job builds and tests it for every Minecraft version in `versions.json` and puts up a release for each one
+whose tests pass (`tools/release.sh`, once per version; `DRY_RUN=1 bash tools/release.sh ...` shows what it would do).
 
 ## Staying up to date with Minecraft
 

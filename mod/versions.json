@@ -1,5 +1,16 @@
 {
   "versions": [
-    { "minecraft": "26.1.2", "loader": "0.20.1", "fabric_api": "0.155.3+26.1.2", "release": false }
+    {
+      "minecraft": "26.1.2",
+      "loader": "0.20.1",
+      "fabric_api": "0.155.3+26.1.2",
+      "release": false
+    },
+    {
+      "minecraft": "26.3",
+      "loader": "0.20.1",
+      "fabric_api": "0.166.2+26.3",
+      "release": true
+    }
   ]
 }

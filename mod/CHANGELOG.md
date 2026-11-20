@@ -3,6 +3,12 @@
 Each release of the mod, newest first. A release is built and tested for every Minecraft version in `versions.json`; the jar's
 name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 
+## 0.3.2
+
+- **She doesn't walk into holes to reach a tree.** Before walking to a block she checks that her way there really gets there; a
+  way that only goes part of the way and ends well below the spot (into a crevice, say) is not taken, and she tries the other
+  sides first. A tree she can't walk to is skipped as a whole, and she goes to the next one instead of trying its logs one by one.
+
 ## 0.3.1
 
 - **A voice app can name her.** An app with the wait door can say her name, and she takes it in the game and in her instructions,

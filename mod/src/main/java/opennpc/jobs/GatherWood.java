@@ -32,6 +32,7 @@ public final class GatherWood extends Work {
 	private int start = -1;
 	private final Deque<BlockPos> trunk = new ArrayDeque<>();
 	private final Set<BlockPos> skip = new HashSet<>();
+	private final List<BlockPos> thisTree = new ArrayList<>();   // (the logs of the tree she is on)
 	private @Nullable Breaker breaker;
 	private @Nullable Collect collect;
 	private @Nullable Give give;
@@ -72,7 +73,18 @@ public final class GatherWood extends Work {
 		if (breaker != null) {
 			Breaker.Result r = breaker.tick(level);
 			if (r == Breaker.Result.WORKING) return Status.RUNNING;
-			if (r == Breaker.Result.CANT) { skip.add(breaker.target); opennpc.OpenNpc.LOG.info("[Open NPC] gave up on the log at {}: {} (she is at {})", breaker.target, breaker.why, c.blockPosition()); }
+			if (r == Breaker.Result.CANT) {
+				skip.add(breaker.target);
+				opennpc.OpenNpc.LOG.info("[Open NPC] gave up on the log at {}: {} (she is at {})", breaker.target, breaker.why, c.blockPosition());
+				// (no way to walk to it: the rest of this tree is no closer, so the whole tree goes and she looks for another one. On a real
+				// hill she spent a minute trying one tree's logs one by one.)
+				if (breaker.walkFailed) {
+					skip.addAll(trunk);
+					skip.addAll(thisTree);
+					trunk.clear();
+					searchIn = 0;
+				}
+			}
 			breaker = null;
 			if (trunk.isEmpty()) collect = new Collect(c, this::wants, 8);
 			return Status.RUNNING;
@@ -88,6 +100,8 @@ public final class GatherWood extends Work {
 			return fail(wood.isEmpty() ? "no trees around here" : "no " + wood + " trees around here");
 		}
 		trunk.addAll(tree);
+		thisTree.clear();
+		thisTree.addAll(tree);
 		return Status.RUNNING;
 	}
 

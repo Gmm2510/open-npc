@@ -81,6 +81,36 @@ public class JobGameTests {
 		});
 	}
 
+	@GameTest(environment = "opennpc-test:job_cliff", maxTicks = 3000)
+	public void skips_a_tree_she_cant_walk_to(GameTestHelper h) {
+		List<String> ev = new ArrayList<>();
+		var s = scene(h, ev);
+		// the nearest tree stands on a block of stone 3 high with sheer sides (no way up), too far in to reach from the ground; another
+		// tree is on the ground farther off. On a real hill she followed a walk that couldn't get there and ended in a crevice under
+		// the tree, then tried its logs one by one for a minute.
+		for (int x = 7; x <= 13; x++) for (int z = 7; z <= 13; z++) for (int y = 0; y < 3; y++) h.setBlock(x, y, z, Blocks.STONE);
+		for (int y = 3; y < 8; y++) h.setBlock(10, y, 10, Blocks.OAK_LOG);
+		for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int y = 6; y <= 8; y++) {
+			if ((dx == 0 && dz == 0 && y < 8) || (Math.abs(dx) == 2 && Math.abs(dz) == 2)) continue;
+			h.setBlock(new BlockPos(10 + dx, y, 10 + dz), Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, false).setValue(LeavesBlock.DISTANCE, 1));
+		}
+		tree(h, 22, 22);
+		long[] firstFar = {-1};
+		h.onEachTick(() -> {
+			if (firstFar[0] < 0 && !h.getBlockState(new BlockPos(22, 0, 22)).is(BlockTags.LOGS)) firstFar[0] = h.getTick();
+		});
+		h.runAfterDelay(2, () -> s.ana().startJob(new GatherWood(s.ana(), true, 3, "", true)));
+		when(h, s, () -> {
+			int logs = handed(s, st -> st.is(ItemTags.LOGS));
+			int high = 0;
+			for (int y = 3; y < 8; y++) if (h.getBlockState(new BlockPos(10, y, 10)).is(BlockTags.LOGS)) high++;
+			OpenNpc.LOG.info("[test] cliff: {} logs handed over, the far tree's first log off at tick {}, {} of 5 logs left up on the stone, events {}", logs, firstFar[0], high, ev);
+			h.assertTrue(logs >= 3, "she brought 3 logs from the tree she can walk to (" + logs + ")");
+			h.assertTrue(high == 5, "the tree up on the stone is untouched (" + high + " of 5 logs left)");
+			h.assertTrue(firstFar[0] > 0 && firstFar[0] < 500, "she gave up on the one she can't walk to at once: the other tree's first log came off at tick " + firstFar[0]);
+		});
+	}
+
 	@GameTest(environment = "opennpc-test:job_low", maxTicks = 3000)
 	public void chops_a_low_tree_through_its_leaves(GameTestHelper h) {
 		List<String> ev = new ArrayList<>();

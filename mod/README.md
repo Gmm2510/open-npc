@@ -12,10 +12,10 @@ each release: [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
-1. Minecraft Java Edition **26.1.2** with **Fabric Loader 0.20.1** or newer ([fabricmc.net/use](https://fabricmc.net/use)).
-2. Download the newest `open-npc-<version>+mc26.1.2.jar` from the
+1. Minecraft Java Edition **26.3** or **26.1.2** with **Fabric Loader 0.20.1** or newer ([fabricmc.net/use](https://fabricmc.net/use)).
+2. Download the newest `open-npc-<version>+mc<minecraft>.jar` for your Minecraft version (`+mc26.3` or `+mc26.1.2`) from the
    [Releases page](https://github.com/Gmm2510/open-npc/releases) (or build it, below).
-3. Put it in the `mods` folder of that installation, with [Fabric API](https://modrinth.com/mod/fabric-api) for 26.1.2.
+3. Put it in the `mods` folder of that installation, with [Fabric API](https://modrinth.com/mod/fabric-api) for the same version.
 4. Start the game once, then set your AI's address in `config/opennpc.json` (below) and open or make a world. She shows up a
    few seconds later, a few steps behind you.
 

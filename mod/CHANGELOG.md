@@ -3,6 +3,14 @@
 Each release of the mod, newest first. A release is built and tested for every Minecraft version in `versions.json`; the jar's
 name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 
+## 0.3.3
+
+- **Minecraft 26.3.** Open NPC is built and tested for Minecraft 26.3 (with Fabric API 0.166.2+26.3) as well as 26.1.2, from
+  the same code.
+- **Handing things over when you're up a rise works every time.** When she can't get closer to you, she now comes over to a spot
+  right next to you. Before, about half the time that spot was past the edge of the rise, back at the bottom, and she never
+  handed anything over.
+
 ## 0.3.2
 
 - **She doesn't walk into holes to reach a tree.** Before walking to a block she checks that her way there really gets there; a

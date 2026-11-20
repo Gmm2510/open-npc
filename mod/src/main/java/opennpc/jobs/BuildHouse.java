@@ -198,7 +198,7 @@ public final class BuildHouse extends Work {
 
 	private @Nullable Op nearest(List<Op> ops, int layer) {
 		return ops.stream().filter(o -> layer < 0 || o.layer() == layer)
-			.min(Comparator.comparingDouble(o -> o.pos().getCenter().distanceToSqr(c.position()))).orElse(null);
+			.min(Comparator.comparingDouble(o -> Vec3.atCenterOf(o.pos()).distanceToSqr(c.position()))).orElse(null);
 	}
 
 	private int planksNeeded() {

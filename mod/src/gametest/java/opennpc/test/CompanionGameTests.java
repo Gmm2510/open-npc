@@ -54,7 +54,7 @@ public class CompanionGameTests {
 		// (no monsters wandering into tests that aren't about fighting; the fight test turns them back on)
 		level.getServer().setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
 		// leftovers from an earlier test go first
-		for (Entity e : level.getEntities((Entity) null, new AABB(h.absolutePos(new BlockPos(-60, -10, -60)).getCenter(), h.absolutePos(new BlockPos(80, 20, 80)).getCenter()), e -> e instanceof CompanionEntity)) e.discard();
+		for (Entity e : level.getEntities((Entity) null, new AABB(Vec3.atCenterOf(h.absolutePos(new BlockPos(-60, -10, -60))), Vec3.atCenterOf(h.absolutePos(new BlockPos(80, 20, 80)))), e -> e instanceof CompanionEntity)) e.discard();
 		// (stand-in players an earlier test left behind could be in her way)
 		for (ServerPlayer old : new ArrayList<>(level.getServer().getPlayerList().getPlayers())) {
 			if (old.getGameProfile().name().equals("test-mock-player")) level.getServer().getPlayerList().remove(old);

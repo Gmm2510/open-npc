@@ -170,7 +170,7 @@ public final class CraftJob extends Work {
 
 	private @Nullable BlockPos nearbyTable(ServerLevel level) {
 		BlockPos me = c.blockPosition();
-		for (BlockPos p : BlockPos.withinManhattan(me, 6, 3, 6)) if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) return p.immutable();
+		for (BlockPos p : Versions.withinManhattan(me, 6, 3, 6)) if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) return p.immutable();
 		return null;
 	}
 

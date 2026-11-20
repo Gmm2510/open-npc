@@ -163,7 +163,7 @@ public class JobGameTests {
 		Difficulty before = h.getLevel().getDifficulty();
 		h.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 		s.ana().addToBag(new ItemStack(Items.IRON_SWORD));
-		var husk = h.spawn(EntityType.HUSK, new Vec3(8, 0, 8));
+		var husk = (net.minecraft.world.entity.Mob) h.spawn(opennpc.jobs.Versions.entityType("husk"), new Vec3(8, 0, 8));
 		husk.setNoAi(true);   // (a target that stands still, so the test is about her)
 		// (only this husk: any other monster around goes)
 		for (var e : s.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, s.owner().getBoundingBox().inflate(48), e -> e instanceof net.minecraft.world.entity.monster.Enemy && e != husk)) e.discard();

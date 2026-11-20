@@ -37,8 +37,12 @@ public final class Fight extends Work {
 	@Override
 	public String progress() { return kills > 0 ? kills + " down" : ""; }
 
+	// (by id: the Java names of the entity types moved in Minecraft 26.3)
+	private static final EntityType<?> CREEPER = Versions.entityType("creeper");
+	private static final EntityType<?> ENDERMAN = Versions.entityType("enderman");
+
 	public static boolean fightable(LivingEntity e) {
-		return e instanceof Enemy && e.isAlive() && e.getType() != EntityType.CREEPER && e.getType() != EntityType.ENDERMAN;
+		return e instanceof Enemy && e.isAlive() && e.getType() != CREEPER && e.getType() != ENDERMAN;
 	}
 
 	@Override

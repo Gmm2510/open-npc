@@ -31,6 +31,7 @@ The first start writes `config/opennpc.json` in the game folder:
 ```json
 {
   "name": "Ana",
+  "useAppName": true,
   "owner": "",
   "speakInChat": "auto",
   "followGap": 4.0,
@@ -40,6 +41,8 @@ The first start writes `config/opennpc.json` in the game folder:
 ```
 
 - `name`: her name in the game.
+- `useAppName`: `true` lets a voice app with the wait door (see below) name her: the companion picked in that app, changed in the
+  game the moment you pick another. `/opennpc name` turns it off, so a name you give her in the game stays.
 - `owner`: who she listens to (a Minecraft name). Empty: the first player in the world (you, in single-player).
 - `ai.url`: the AI's address, ending in `/v1`. For example `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, or
   a model on your own PC (LM Studio, Ollama and llama.cpp all serve this API).
@@ -87,9 +90,10 @@ Commands (her owner only): `/opennpc` (how she is), `/opennpc come`, `/opennpc f
 She asks the AI when something happens in the game: you type to her, a job ends, she has free time. An app that hears you some
 other way, like a voice call app on your PC, can serve one more address next to the AI: `GET <ai.url>/wait`.
 
-- `GET /wait` answers right away with `{ "call": true|false, "words": <number> }`.
-- `GET /wait?since=<words>&call=<0|1>&ms=<up to 30000>` answers as soon as `words` grows past `since` (you said something) or
-  `call` changes, or after `ms`.
+- `GET /wait` answers right away with `{ "call": true|false, "words": <number> }`, plus `"name": "<her name>"` if the app
+  names her.
+- `GET /wait?since=<words>&call=<0|1>&ms=<up to 30000>` answers as soon as `words` grows past `since` (you said something),
+  `call` changes or her name changes, or after `ms`.
 
 When it answers she asks the AI at once, and the app adds your words to that question. When the address has the door, she
 types nothing in chat (the app speaks for her).

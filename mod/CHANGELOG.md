@@ -3,6 +3,20 @@
 Each release of the mod, newest first. A release is built and tested for every Minecraft version in `versions.json`; the jar's
 name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 
+## 0.3.2
+
+- **She doesn't walk into holes to reach a tree.** Before walking to a block she checks that her way there really gets there; a
+  way that only goes part of the way and ends well below the spot (into a crevice, say) is not taken, and she tries the other
+  sides first. A tree she can't walk to is skipped as a whole, and she goes to the next one instead of trying its logs one by one.
+- **She gets herself unstuck.** If she can't walk to a single tree from where she is (down a hole, say), she comes back to you
+  and looks again from there. And when she can't get closer to you to hand something over (you're up a rise), she comes over to you.
+
+## 0.3.1
+
+- **A voice app can name her.** An app with the wait door can say her name, and she takes it in the game and in her instructions,
+  changing it the moment you pick another companion there. The new setting `useAppName` (on to start) allows it; `/opennpc name`
+  turns it off so a name you give her stays. Names can use any language's letters now.
+
 ## 0.3.0
 
 The first release. She is early: try her in a world you don't mind her changing.

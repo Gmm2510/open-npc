@@ -12,10 +12,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Node;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import opennpc.entity.CompanionEntity;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -54,7 +57,7 @@ public final class Breaker {
 		if (hardness < 0) { why = "it can't be broken"; return Result.CANT; }
 		if (clearing != null) {
 			Result r = clearing.tick(level);
-			if (r == Result.CANT) { why = "leaves in the way: " + clearing.why; clearing = null; return Result.CANT; }
+			if (r == Result.CANT) { why = "leaves in the way: " + clearing.why; walkFailed = clearing.walkFailed; clearing = null; return Result.CANT; }
 			if (r == Result.BROKEN) { clearing = null; walking = 0; stand = null; }
 			return Result.WORKING;
 		}
@@ -63,16 +66,17 @@ public final class Breaker {
 			if (stand == null || walking % 80 == 79) {
 				stand = standSpot(level);
 				// (leaves in the way: knock out the reachable one nearest the block, then look again)
-				if (stand == null && depth == 0 && peeled < 30) {
+				if (stand == null && !walkFailed && depth == 0 && peeled < 30) {
 					BlockPos leaf = peelLeaf(level);
 					if (leaf != null) { peeled++; clearing = new Breaker(c, leaf, 1); return Result.WORKING; }
 				}
-				if (stand == null) { why = "no way to get to it"; return Result.CANT; }
+				if (stand == null) { why = walkFailed ? "no way to walk there" : "no way to get to it"; return Result.CANT; }
 			}
 			walking++;
 			c.walkTo(stand, 1.0);
 			if (walking > 400 || c.stuckFor() > 120) {
 				var path = c.getNavigation().getPath();
+				walkFailed = path == null || !path.canReach();   // (the walk itself didn't get there, not a block she couldn't see from her spot)
 				why = "couldn't get to it (stand " + stand + ", path end " + (path == null ? "none" : path.getEndNode() == null ? "?" : path.getEndNode().asBlockPos()) + ", reach " + (path != null && path.canReach()) + ", walked " + walking + ", stuck " + c.stuckFor() + ")";
 				return Result.CANT;
 			}
@@ -157,10 +161,40 @@ public final class Breaker {
 		return hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(pos);
 	}
 
-	/** The nearest place to stand from where she can reach and see the block. */
+	/** The nearest place to stand from where she can reach and see the block, that she can also walk to. */
 	private @Nullable Vec3 standSpot(ServerLevel level) {
-		Vec3 best = null;
-		double bestD = Double.MAX_VALUE;
+		List<Vec3> spots = standSpots(level);
+		if (spots.isEmpty()) return null;
+		// (a walk that can't get there and ends well below the spot goes down into a hole: on a real hill her walk to a tree ended in a
+		// crevice 6 blocks under it and she never got out. Each side is tried before giving up on the block.)
+		int tried = 0;
+		for (Vec3 at : spots) {
+			if (++tried > 6) break;
+			if (walkable(at)) return at;
+		}
+		walkFailed = true;
+		return null;
+	}
+
+	/** Set when there were places to stand but no way to walk to any of them. */
+	public boolean walkFailed = false;
+
+	/** Her walk to `at` gets there, or at least gets closer without going down below it. */
+	private boolean walkable(Vec3 at) {
+		if (c.position().distanceToSqr(at) < 2.25) return true;
+		Path path = c.getNavigation().createPath(BlockPos.containing(at), 0);
+		if (path == null) return false;
+		if (path.canReach()) return true;
+		Node end = path.getEndNode();
+		if (end == null) return false;
+		boolean closer = Vec3.atBottomCenterOf(end.asBlockPos()).distanceTo(at) < c.position().distanceTo(at) - 2;
+		return closer && end.y >= Math.floor(at.y) - 2;
+	}
+
+	/** The places to stand from where she can reach and see the block, nearest first. */
+	private List<Vec3> standSpots(ServerLevel level) {
+		List<Vec3> out = new java.util.ArrayList<>();
+		java.util.Map<Vec3, Double> score = new java.util.HashMap<>();
 		for (int dx = -3; dx <= 3; dx++) {
 			for (int dz = -3; dz <= 3; dz++) {
 				for (int dy = -4; dy <= 2; dy++) {
@@ -169,12 +203,13 @@ public final class Breaker {
 					Vec3 at = c.standableAt(level, p);
 					// (comfortably within reach, so arriving a little off the middle of the block still reaches)
 					if (at == null || !canReach(level, at, REACH - 1.0)) continue;
-					double d = at.distanceToSqr(c.position()) + (dy > 0 ? 4 : 0) + at.distanceToSqr(Vec3.atCenterOf(target));
-					if (d < bestD) { bestD = d; best = at; }
+					out.add(at);
+					score.put(at, at.distanceToSqr(c.position()) + (dy > 0 ? 4 : 0) + at.distanceToSqr(Vec3.atCenterOf(target)));
 				}
 			}
 		}
-		return best;
+		out.sort(java.util.Comparator.comparingDouble(score::get));
+		return out;
 	}
 
 	/** The natural leaves around the block that she can reach and see now, the one nearest the block first. */
@@ -188,7 +223,7 @@ public final class Breaker {
 		int checked = 0;
 		for (BlockPos p : found) {
 			if (++checked > 90) break;
-			if (new Breaker(c, p, 1).standSpot(level) != null) return p;
+			if (!new Breaker(c, p, 1).standSpots(level).isEmpty()) return p;   // (the leaf's own walk is checked when she goes)
 		}
 		return null;
 	}

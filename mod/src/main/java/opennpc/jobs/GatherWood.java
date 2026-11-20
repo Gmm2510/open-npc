@@ -32,6 +32,9 @@ public final class GatherWood extends Work {
 	private int start = -1;
 	private final Deque<BlockPos> trunk = new ArrayDeque<>();
 	private final Set<BlockPos> skip = new HashSet<>();
+	private final List<BlockPos> thisTree = new ArrayList<>();   // (the logs of the tree she is on)
+	private final Set<BlockPos> walkSkipped = new HashSet<>();   // (trees skipped only because she couldn't walk to them from where she was)
+	private boolean cameBack = false;
 	private @Nullable Breaker breaker;
 	private @Nullable Collect collect;
 	private @Nullable Give give;
@@ -72,7 +75,20 @@ public final class GatherWood extends Work {
 		if (breaker != null) {
 			Breaker.Result r = breaker.tick(level);
 			if (r == Breaker.Result.WORKING) return Status.RUNNING;
-			if (r == Breaker.Result.CANT) { skip.add(breaker.target); opennpc.OpenNpc.LOG.info("[Open NPC] gave up on the log at {}: {} (she is at {})", breaker.target, breaker.why, c.blockPosition()); }
+			if (r == Breaker.Result.CANT) {
+				skip.add(breaker.target);
+				opennpc.OpenNpc.LOG.info("[Open NPC] gave up on the log at {}: {} (she is at {})", breaker.target, breaker.why, c.blockPosition());
+				// (no way to walk to it: the rest of this tree is no closer, so the whole tree goes and she looks for another one. On a real
+				// hill she spent a minute trying one tree's logs one by one.)
+				if (breaker.walkFailed) {
+					skip.addAll(trunk);
+					skip.addAll(thisTree);
+					walkSkipped.addAll(thisTree);
+					walkSkipped.add(breaker.target);
+					trunk.clear();
+					searchIn = 0;
+				}
+			}
 			breaker = null;
 			if (trunk.isEmpty()) collect = new Collect(c, this::wants, 8);
 			return Status.RUNNING;
@@ -83,11 +99,26 @@ public final class GatherWood extends Work {
 		}
 		if (--searchIn > 0) return Status.RUNNING;
 		List<BlockPos> tree = findTree(level);
+		if (tree.isEmpty() && !walkSkipped.isEmpty() && !cameBack && got() == 0) {
+			// (trees all around, and she can't walk to a single one: she's stuck where she is, in a hole say. She comes back to the owner,
+			// the way she does when she's stuck far behind them, and looks again from there, once.)
+			cameBack = true;
+			net.minecraft.server.level.ServerPlayer o = c.owner();
+			if (o != null && o.level() == level && c.distanceTo(o) > 6 && c.teleportNear(level, o, 3)) {
+				opennpc.OpenNpc.LOG.info("[Open NPC] no tree she can walk to from {}: back to the owner to look again", c.blockPosition());
+				skip.removeAll(walkSkipped);
+				walkSkipped.clear();
+				searchIn = 0;
+				return Status.RUNNING;
+			}
+		}
 		if (tree.isEmpty()) {
 			if (got() > 0) return finish();
 			return fail(wood.isEmpty() ? "no trees around here" : "no " + wood + " trees around here");
 		}
 		trunk.addAll(tree);
+		thisTree.clear();
+		thisTree.addAll(tree);
 		return Status.RUNNING;
 	}
 

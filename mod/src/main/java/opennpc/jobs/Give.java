@@ -22,6 +22,9 @@ public final class Give extends Work {
 	private final String what;
 	private Deque<ItemStack> toss;
 	private int given = 0, wait = 0;
+	private boolean cameOver = false;
+	private double closest = Double.MAX_VALUE;
+	private int notCloser = 0;
 
 	public Give(CompanionEntity c, boolean byPlayer, Predicate<ItemStack> which, int n, String what) {
 		super(c, byPlayer);
@@ -43,6 +46,14 @@ public final class Give extends Work {
 		}
 		double d = c.distanceTo(o);
 		if (d > 3.0) {
+			// (not getting any closer: on a real hill he stood on a rise she couldn't walk up, and after a minute she gave up with the logs
+			// still in her bag. After 6 seconds without getting a block closer she comes over to him, the way she does when she's stuck far
+			// behind while following, once.)
+			if (d < closest - 1) { closest = d; notCloser = 0; } else notCloser++;
+			if (notCloser > 120 && !cameOver) {
+				cameOver = true;
+				if (c.teleportNear(level, o, 2.5)) { c.freshStart(); opennpc.OpenNpc.LOG.info("[Open NPC] stuck on the way to the owner: came over"); return Status.RUNNING; }
+			}
 			if (ticks > 20 * 60) { putBack(); return fail("couldn't get to the owner"); }
 			c.walkTo(o.position(), d > 10 ? 1.13 : 1.0);
 			c.getLookControl().setLookAt(o, 10.0F, 40.0F);

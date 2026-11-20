@@ -336,6 +336,71 @@ public class CompanionGameTests {
 		});
 	}
 
+	@GameTest(environment = "opennpc-test:solo_ai_name", maxTicks = 900)
+	public void the_app_names_her(GameTestHelper h) {
+		Scene s = scene(h, 12, 12, 2, 2);
+		StandIn ai = StandIn.start(true, user -> new StandIn.Reply(null, "nothing to do"));
+		ai.setName("Yui");
+		opennpc.NpcConfig cfg = new opennpc.NpcConfig();   // (the defaults: name Ana, the app's name allowed)
+		Brain[] holder = {null};
+		CompanionBody body = new CompanionBody(() -> s.ana, () -> s.owner, () -> cfg.shownName(holder[0] == null ? "" : holder[0].appName()), () -> "Tester", line -> {}, p -> null);
+		Brain brain = new Brain(body, s.level.getServer(), ai.url(), "", "", "auto", line -> OpenNpc.LOG.info("[test] [ai] {}", line));
+		holder[0] = brain;
+		int[] changed = {0};
+		// (as the companion manager does: the one in the world takes the name the moment it changes)
+		brain.onAppName = () -> { changed[0]++; s.ana.setName(cfg.shownName(brain.appName())); };
+		h.onEachTick(brain::tick);
+		OpenNpcTestMod.cleanup.add(brain::stop);
+		check(h, s.ana.getCustomName() != null && s.ana.getCustomName().getString().equals("Ana"), "before the app answers she is Ana");
+		brain.start();
+		int[] step = {0};
+		long[] at = {0};
+		h.onEachTick(() -> {
+			if (s.ana.isRemoved()) return;
+			long t = h.getTick();
+			String shown = s.ana.getCustomName() == null ? "" : s.ana.getCustomName().getString();
+			switch (step[0]) {
+				case 0 -> {
+					if (shown.equals("Yui")) {
+						check(h, brain.appName().equals("Yui") && changed[0] == 1, "the app's name came on the door, once (" + changed[0] + ")");
+						ai.setCall(true);
+						step[0] = 1;
+					}
+				}
+				case 1 -> {
+					if (ai.seen.size() == 1 && !brain.busy()) {
+						String system = ai.seen.get(0).getAsJsonArray("messages").get(0).getAsJsonObject().get("content").getAsString();
+						check(h, system.contains("You control Yui") && !system.contains("Ana"), "her instructions use the app's name");
+						ai.setName("Mila");   // (another companion picked in the app)
+						at[0] = t;
+						step[0] = 2;
+					}
+				}
+				case 2 -> {
+					if (shown.equals("Mila")) {
+						check(h, t - at[0] < 60, "a new pick shows within 3 seconds (" + (t - at[0]) + " ticks)");
+						cfg.useAppName = false;   // (renamed in the game: her own name stays)
+						brain.onAppName.run();
+						check(h, s.ana.getCustomName().getString().equals("Ana"), "with the app's name turned off she is her setting's name");
+						cfg.useAppName = true;
+						ai.setName(null);
+						step[0] = 3;
+					}
+				}
+				case 3 -> {
+					if (changed[0] == 4) {   // (the door's answer with no name)
+						check(h, brain.appName().isEmpty() && shown.equals("Ana"), "a door with no name: back to her setting (" + shown + ")");
+						check(h, opennpc.NpcConfig.cleanOrEmpty(" Zoë!\n") .equals("Zoë") && opennpc.NpcConfig.cleanOrEmpty("a very long name here!!").equals("a very long name"), "names: any language's letters, 16 at most");
+						brain.stop();
+						ai.close();
+						s.done();
+					}
+				}
+				default -> {}
+			}
+		});
+	}
+
 	@GameTest(environment = "opennpc-test:solo_lines", maxTicks = 20)
 	public void event_lines(GameTestHelper h) {
 		check(h, Brain.describe("task_failed", Map.of("task", "mining iron", "reason", "no pickaxe"), "Steve").equals("gave up on mining iron: no pickaxe"), "a failed job");

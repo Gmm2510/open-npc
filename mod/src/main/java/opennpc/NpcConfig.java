@@ -13,6 +13,9 @@ import java.nio.file.Path;
 public final class NpcConfig {
 	/** The companion's name in the game. */
 	public String name = "Ana";
+	/** true: when the app at the AI address names her on its wait door (the companion picked in a voice app), she takes that name
+	 * and changes it when the app does; "name" is used otherwise. Renaming her with /npc name turns this off. */
+	public boolean useAppName = true;
 	/** Who she belongs to (a Minecraft name). Empty: the host of a single-player world, or the first player who joins a server. */
 	public String owner = "";
 	/** "auto": her words go in the game chat unless the AI address has a wait door (a voice app speaks for her). "yes" or "no" to choose. */
@@ -72,10 +75,21 @@ public final class NpcConfig {
 		return env == null ? "" : env.trim();
 	}
 
-	/** 1 to 16 letters, digits, spaces or _ ; anything else becomes "Ana". */
+	/** 1 to 16 letters (any language), digits, spaces or _ ; anything else becomes "Ana". */
 	public static String cleanName(String n) {
-		String s = n == null ? "" : n.replaceAll("[^A-Za-z0-9_ ]", "").trim();
-		if (s.length() > 16) s = s.substring(0, 16).trim();
+		String s = cleanOrEmpty(n);
 		return s.isEmpty() ? "Ana" : s;
+	}
+
+	/** The same rules, but nothing usable stays empty. */
+	public static String cleanOrEmpty(String n) {
+		String s = n == null ? "" : n.replaceAll("[^\\p{L}\\p{N}_ ]", "").replaceAll("\\s+", " ").trim();
+		if (s.length() > 16) s = s.substring(0, 16).trim();
+		return s;
+	}
+
+	/** The name she goes by: the app's, when it gives one and that's allowed, else her own setting. */
+	public String shownName(String appName) {
+		return useAppName && appName != null && !appName.isBlank() ? appName : name;
 	}
 }

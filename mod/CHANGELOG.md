@@ -3,6 +3,12 @@
 Each release of the mod, newest first. A release is built and tested for every Minecraft version in `versions.json`; the jar's
 name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 
+## 0.3.1
+
+- **A voice app can name her.** An app with the wait door can say her name, and she takes it in the game and in her instructions,
+  changing it the moment you pick another companion there. The new setting `useAppName` (on to start) allows it; `/opennpc name`
+  turns it off so a name you give her stays. Names can use any language's letters now.
+
 ## 0.3.0
 
 The first release. She is early: try her in a world you don't mind her changing.

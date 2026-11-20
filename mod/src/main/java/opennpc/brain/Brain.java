@@ -79,7 +79,10 @@ public final class Brain {
 
 	private volatile boolean stopped = false;
 	private volatile Boolean waitOn = null;   // null: not known yet
+	private volatile String appName = "";     // the name the app at the wait door gives her ("" for none)
 	private Thread waitThread;
+	/** Runs on the game's main thread when the app's name for her changes. */
+	public Runnable onAppName = () -> {};
 
 	public Brain(Body body, Executor main, String url, String key, String model, String speakInChat, Consumer<String> log) {
 		this.body = body;
@@ -97,6 +100,8 @@ public final class Brain {
 	public boolean busy() { return busy; }
 	/** True once the address answered at /wait, false once it said it has no such door, null before it is known. */
 	public Boolean waitDoor() { return waitOn; }
+	/** The name the app at the wait door gives her (the companion picked there), or "" when it gives none. */
+	public String appName() { return appName; }
 
 	/** Her words go in the game chat, unless an app with the wait door speaks for her (or the setting says no). */
 	public boolean speakInChat() {
@@ -329,7 +334,8 @@ public final class Brain {
 
 	/**
 	 * An app that hears the owner some other way (a voice call) answers at GET address/wait when they speak or a call
-	 * starts, and adds their words to the next question itself. An address without the door answers 404; then it looks
+	 * starts, and adds their words to the next question itself. It can also say her name ("name"): the companion picked
+	 * in the app, so the one in the game is the one on the call. An address without the door answers 404; then it looks
 	 * again now and then, in case the app is updated or started later.
 	 */
 	public void start() {
@@ -364,6 +370,12 @@ public final class Brain {
 				misses = 0;
 				int words = j.has("words") ? j.get("words").getAsInt() : 0;
 				boolean nowCall = j.has("call") && j.get("call").getAsBoolean();
+				String named = j.has("name") && j.get("name").isJsonPrimitive() ? opennpc.NpcConfig.cleanOrEmpty(j.get("name").getAsString()) : "";
+				if (!named.equals(appName)) {
+					appName = named;
+					log.accept(named.isEmpty() ? "the app gives her no name" : "the app calls her " + named);
+					main.execute(onAppName);
+				}
 				if (since != null && words > since) main.execute(() -> want("words"));
 				if (nowCall && !call) main.execute(() -> want("call"));
 				since = words;

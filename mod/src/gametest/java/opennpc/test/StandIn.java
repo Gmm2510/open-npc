@@ -32,6 +32,7 @@ final class StandIn implements AutoCloseable {
 	private final Object lock = new Object();
 	private int words = 0;
 	private boolean call = false;
+	private String name = null;   // her name on the wait door (null: none, as before)
 
 	private StandIn(boolean door, Function<String, Reply> reply) throws IOException {
 		this.door = door;
@@ -52,6 +53,9 @@ final class StandIn implements AutoCloseable {
 	void speak() { synchronized (lock) { words++; lock.notifyAll(); } }
 
 	void setCall(boolean v) { synchronized (lock) { call = v; lock.notifyAll(); } }
+
+	/** The companion picked in the app (null: the door gives no name). A door that is waiting answers at once. */
+	void setName(String v) { synchronized (lock) { name = v; lock.notifyAll(); } }
 
 	private void handle(HttpExchange x) throws IOException {
 		String path = x.getRequestURI().getPath();
@@ -75,10 +79,15 @@ final class StandIn implements AutoCloseable {
 		long until = System.currentTimeMillis() + ms;
 		String body;
 		synchronized (lock) {
-			while (has && words <= since && call == was && System.currentTimeMillis() < until) {
+			String startName = name;
+			while (has && words <= since && call == was && java.util.Objects.equals(name, startName) && System.currentTimeMillis() < until) {
 				try { lock.wait(Math.max(1, until - System.currentTimeMillis())); } catch (InterruptedException e) { break; }
 			}
-			body = "{\"call\":" + call + ",\"words\":" + words + "}";
+			JsonObject b = new JsonObject();
+			b.addProperty("call", call);
+			b.addProperty("words", words);
+			if (name != null) b.addProperty("name", name);
+			body = b.toString();
 		}
 		send(x, 200, body);
 	}

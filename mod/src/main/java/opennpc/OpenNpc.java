@@ -103,7 +103,7 @@ public class OpenNpc implements ModInitializer {
 		if (m == null) { c.getSource().sendFailure(Component.literal("Open NPC isn't running.")); return null; }
 		ServerPlayer p = c.getSource().getPlayer();
 		if (p != null && m.owner() != null && !m.isOwner(p)) {
-			c.getSource().sendFailure(Component.literal(m.config().name + " listens to " + m.owner().getGameProfile().name() + "."));
+			c.getSource().sendFailure(Component.literal(m.name() + " listens to " + m.owner().getGameProfile().name() + "."));
 			return null;
 		}
 		return m;
@@ -114,7 +114,7 @@ public class OpenNpc implements ModInitializer {
 		if (m == null) { c.getSource().sendFailure(Component.literal("Open NPC isn't running.")); return 0; }
 		CompanionEntity e = m.companion();
 		Boolean door = m.brain().waitDoor();
-		String line = m.config().name + ": " + (e == null ? "not in the world" : e.doing())
+		String line = m.name() + ": " + (e == null ? "not in the world" : e.doing())
 			+ ". AI: " + m.brain().url() + (door == null ? "" : door ? " (a voice app with the wait door: her words aren't typed in chat)" : "")
 			+ ". Questions asked: " + m.brain().asks() + ".";
 		c.getSource().sendSuccess(() -> Component.literal(line), false);
@@ -125,7 +125,7 @@ public class OpenNpc implements ModInitializer {
 		CompanionManager m = allowed(c);
 		if (m == null) return 0;
 		var r = m.body().command(action, new com.google.gson.JsonObject(), true);
-		if (!r.ok()) { c.getSource().sendFailure(Component.literal(m.config().name + " can't right now (" + r.reason().replace('_', ' ') + ").")); return 0; }
+		if (!r.ok()) { c.getSource().sendFailure(Component.literal(m.name() + " can't right now (" + r.reason().replace('_', ' ') + ").")); return 0; }
 		return 1;
 	}
 
@@ -150,7 +150,7 @@ public class OpenNpc implements ModInitializer {
 		CompanionManager m = allowed(c);
 		if (m == null) return 0;
 		m.rename(StringArgumentType.getString(c, "name"));
-		c.getSource().sendSuccess(() -> Component.literal("Her name is now " + m.config().name + "."), false);
+		c.getSource().sendSuccess(() -> Component.literal("Her name is now " + m.name() + "."), false);
 		return 1;
 	}
 
@@ -158,7 +158,7 @@ public class OpenNpc implements ModInitializer {
 		CompanionManager m = allowed(c);
 		if (m == null) return 0;
 		m.setGap(DoubleArgumentType.getDouble(c, "blocks"));
-		c.getSource().sendSuccess(() -> Component.literal(m.config().name + " now keeps about " + Math.round(m.config().followGap) + " blocks from you."), false);
+		c.getSource().sendSuccess(() -> Component.literal(m.name() + " now keeps about " + Math.round(m.config().followGap) + " blocks from you."), false);
 		return 1;
 	}
 }

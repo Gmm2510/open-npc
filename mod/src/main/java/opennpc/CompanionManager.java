@@ -66,7 +66,7 @@ public final class CompanionManager {
 		} catch (Exception e) {
 			OpenNpc.LOG.warn("Open NPC: {} could not be read: {}", stateFile, e.getMessage());
 		}
-		this.body = new CompanionBody(this::companion, this::owner, () -> cfg.name, () -> {
+		this.body = new CompanionBody(this::companion, this::owner, this::name, () -> {
 			ServerPlayer o = owner();
 			return o != null ? o.getGameProfile().name() : state.ownerName;
 		}, this::say, this::summon);
@@ -77,8 +77,20 @@ public final class CompanionManager {
 
 	private Brain newBrain() {
 		Brain b = new Brain(body, server, cfg.ai.url, cfg.key(), cfg.ai.model, cfg.speakInChat, line -> OpenNpc.LOG.info("[Open NPC] [ai] {}", line));
-		OpenNpc.LOG.info("[Open NPC] {} asks the AI at {}", cfg.name, b.url());
+		b.onAppName = this::nameChanged;
+		OpenNpc.LOG.info("[Open NPC] her AI is at {}", b.url());
 		return b;
+	}
+
+	/** The name she goes by now (the app's, or the setting's). */
+	public String name() {
+		return cfg.shownName(brain == null ? "" : brain.appName());
+	}
+
+	/** The app picked another companion (or named her for the first time): the one in the world takes the name at once. */
+	private void nameChanged() {
+		CompanionEntity c = companion();
+		if (c != null) c.setName(name());
 	}
 
 	public void start() {
@@ -107,6 +119,7 @@ public final class CompanionManager {
 
 	public void rename(String name) {
 		cfg.name = NpcConfig.cleanName(name);
+		cfg.useAppName = false;   // (a name given in the game stays, whatever the app calls her)
 		cfg.save(configFile);
 		CompanionEntity c = companion();
 		if (c != null) apply(c);
@@ -186,7 +199,7 @@ public final class CompanionManager {
 	}
 
 	private void apply(CompanionEntity c) {
-		c.setName(cfg.name);
+		c.setName(name());
 		c.followGap = cfg.followGap;
 		if (c.ownerId() == null && !state.owner.isEmpty()) {
 			try { c.setOwner(UUID.fromString(state.owner)); } catch (IllegalArgumentException ignored) {}
@@ -210,7 +223,7 @@ public final class CompanionManager {
 		if (c == null) return null;
 		c.setOwner(owner.getUUID());
 		c.snapTo(owner.getX(), owner.getY(), owner.getZ(), owner.getYRot(), 0);
-		c.setName(cfg.name);
+		c.setName(name());
 		c.followGap = cfg.followGap;
 		if (!c.teleportNear(level, owner, cfg.followGap + 3) && !c.teleportNear(level, owner, 2)) {
 			c.snapTo(owner.getX(), owner.getY(), owner.getZ(), owner.getYRot(), 0);
@@ -314,7 +327,7 @@ public final class CompanionManager {
 
 	/** Her words in the game chat, the way a player's look. */
 	public void say(String text) {
-		server.getPlayerList().broadcastSystemMessage(Component.translatable("chat.type.text", Component.literal(cfg.name), Component.literal(text)), false);
+		server.getPlayerList().broadcastSystemMessage(Component.translatable("chat.type.text", Component.literal(name()), Component.literal(text)), false);
 	}
 
 	private void saveState() {

@@ -57,7 +57,7 @@ public final class Breaker {
 		if (hardness < 0) { why = "it can't be broken"; return Result.CANT; }
 		if (clearing != null) {
 			Result r = clearing.tick(level);
-			if (r == Result.CANT) { why = "leaves in the way: " + clearing.why; clearing = null; return Result.CANT; }
+			if (r == Result.CANT) { why = "leaves in the way: " + clearing.why; walkFailed = clearing.walkFailed; clearing = null; return Result.CANT; }
 			if (r == Result.BROKEN) { clearing = null; walking = 0; stand = null; }
 			return Result.WORKING;
 		}

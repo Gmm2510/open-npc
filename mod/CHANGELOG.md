@@ -8,6 +8,8 @@ name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 - **She doesn't walk into holes to reach a tree.** Before walking to a block she checks that her way there really gets there; a
   way that only goes part of the way and ends well below the spot (into a crevice, say) is not taken, and she tries the other
   sides first. A tree she can't walk to is skipped as a whole, and she goes to the next one instead of trying its logs one by one.
+- **She gets herself unstuck.** If she can't walk to a single tree from where she is (down a hole, say), she comes back to you
+  and looks again from there. And when she can't get closer to you to hand something over (you're up a rise), she comes over to you.
 
 ## 0.3.1
 

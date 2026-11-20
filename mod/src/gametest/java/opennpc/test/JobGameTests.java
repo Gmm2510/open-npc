@@ -111,6 +111,43 @@ public class JobGameTests {
 		});
 	}
 
+	@GameTest(environment = "opennpc-test:job_hole", maxTicks = 3000)
+	public void gets_out_of_a_hole_to_chop(GameTestHelper h) {
+		List<String> ev = new ArrayList<>();
+		var s = scene(h, ev);
+		// she is at the bottom of a shaft 5 blocks deep with sheer sides, the only tree is out by the owner (on a real hill her walk
+		// ended in a crevice and she stayed there through two calls)
+		for (int x = 3; x <= 5; x++) for (int z = 3; z <= 5; z++) for (int y = 0; y < 5; y++) if (x != 4 || z != 4) h.setBlock(x, y, z, Blocks.STONE);
+		s.ana().snapTo(h.absoluteVec(new net.minecraft.world.phys.Vec3(4.5, 0, 4.5)).x, h.absoluteVec(new net.minecraft.world.phys.Vec3(4.5, 0, 4.5)).y, h.absoluteVec(new net.minecraft.world.phys.Vec3(4.5, 0, 4.5)).z, 0, 0);
+		s.ownerAt(18, 18);
+		tree(h, 22, 22);
+		h.runAfterDelay(2, () -> s.ana().startJob(new GatherWood(s.ana(), true, 3, "", true)));
+		when(h, s, () -> {
+			int logs = handed(s, st -> st.is(ItemTags.LOGS));
+			OpenNpc.LOG.info("[test] hole: {} logs handed over, events {}", logs, ev);
+			h.assertTrue(logs >= 3, "she got out and brought 3 logs (" + logs + ")");
+		});
+	}
+
+	@GameTest(environment = "opennpc-test:job_rise", maxTicks = 1000)
+	public void hands_over_to_an_owner_up_a_rise(GameTestHelper h) {
+		List<String> ev = new ArrayList<>();
+		var s = scene(h, ev);
+		// he stands on a platform 3 high with sheer sides that she can't walk up (on a real hill she gave up after a minute with 7 logs)
+		for (int x = 14; x <= 20; x++) for (int z = 14; z <= 20; z++) for (int y = 0; y < 3; y++) h.setBlock(x, y, z, Blocks.STONE);
+		var top = h.absoluteVec(new net.minecraft.world.phys.Vec3(17.5, 3, 17.5));
+		h.runAfterDelay(2, () -> {
+			s.owner().snapTo(top.x, top.y, top.z, 0, 0);
+			s.ana().addToBag(new ItemStack(net.minecraft.world.item.Items.OAK_LOG, 5));
+			s.ana().startJob(new Give(s.ana(), true, st -> st.is(ItemTags.LOGS), 5, "logs"));
+		});
+		when(h, s, () -> {
+			int logs = handed(s, st -> st.is(ItemTags.LOGS));
+			OpenNpc.LOG.info("[test] rise: {} logs handed over at tick {}, events {}", logs, h.getTick(), ev);
+			h.assertTrue(logs >= 5, "she got the logs to him up on the rise (" + logs + ")");
+		});
+	}
+
 	@GameTest(environment = "opennpc-test:job_low", maxTicks = 3000)
 	public void chops_a_low_tree_through_its_leaves(GameTestHelper h) {
 		List<String> ev = new ArrayList<>();

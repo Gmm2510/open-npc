@@ -87,6 +87,14 @@ public class CompanionGameTests {
 		for (int cx = Math.min(a.getX(), b.getX()) >> 4; cx <= Math.max(a.getX(), b.getX()) >> 4; cx++)
 			for (int cz = Math.min(a.getZ(), b.getZ()) >> 4; cz <= Math.max(a.getZ(), b.getZ()) >> 4; cz++)
 				h.getLevel().setChunkForced(cx, cz, on);
+		if (!on) return;
+		// (a forced chunk only runs its entities once the chunks around it are loaded too, and those load in the background while
+		// the test server races through its ticks. One run had her stand frozen just past a chunk border until the test timed
+		// out, which fits a floor chunk that wasn't running yet. So the floor's chunks and two rings around them are loaded
+		// here, before anything moves.)
+		for (int cx = (Math.min(a.getX(), b.getX()) >> 4) - 2; cx <= (Math.max(a.getX(), b.getX()) >> 4) + 2; cx++)
+			for (int cz = (Math.min(a.getZ(), b.getZ()) >> 4) - 2; cz <= (Math.max(a.getZ(), b.getZ()) >> 4) + 2; cz++)
+				h.getLevel().getChunk(cx, cz);
 	}
 
 	static void check(GameTestHelper h, boolean ok, String what) {

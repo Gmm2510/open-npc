@@ -344,7 +344,9 @@ public class CompanionGameTests {
 		});
 	}
 
-	@GameTest(environment = "opennpc-test:solo_ai_name", maxTicks = 900)
+	// (the test server runs its ticks as fast as it can, 900 in under a second on one run, while the stand-in answers in real time:
+	// time is measured by the clock here, and there are ticks to spare)
+	@GameTest(environment = "opennpc-test:solo_ai_name", maxTicks = 6000)
 	public void the_app_names_her(GameTestHelper h) {
 		Scene s = scene(h, 12, 12, 2, 2);
 		StandIn ai = StandIn.start(true, user -> new StandIn.Reply(null, "nothing to do"));
@@ -365,7 +367,7 @@ public class CompanionGameTests {
 		long[] at = {0};
 		h.onEachTick(() -> {
 			if (s.ana.isRemoved()) return;
-			long t = h.getTick();
+			long now = System.currentTimeMillis();
 			String shown = s.ana.getCustomName() == null ? "" : s.ana.getCustomName().getString();
 			switch (step[0]) {
 				case 0 -> {
@@ -380,13 +382,14 @@ public class CompanionGameTests {
 						String system = ai.seen.get(0).getAsJsonArray("messages").get(0).getAsJsonObject().get("content").getAsString();
 						check(h, system.contains("You control Yui") && !system.contains("Ana"), "her instructions use the app's name");
 						ai.setName("Mila");   // (another companion picked in the app)
-						at[0] = t;
+						at[0] = now;
 						step[0] = 2;
 					}
 				}
 				case 2 -> {
 					if (shown.equals("Mila")) {
-						check(h, t - at[0] < 60, "a new pick shows within 3 seconds (" + (t - at[0]) + " ticks)");
+						OpenNpc.LOG.info("[test] name: a new pick showed after {} ms", now - at[0]);
+						check(h, now - at[0] < 3000, "a new pick shows within 3 seconds (" + (now - at[0]) + " ms)");
 						cfg.useAppName = false;   // (renamed in the game: her own name stays)
 						brain.onAppName.run();
 						check(h, s.ana.getCustomName().getString().equals("Ana"), "with the app's name turned off she is her setting's name");

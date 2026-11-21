@@ -345,7 +345,7 @@ public class CompanionGameTests {
 	}
 
 	// (the test server runs its ticks as fast as it can, 900 in under a second on one run, while the stand-in answers in real time:
-	// time is measured by the clock here, and there are ticks to spare)
+	// time is measured by the clock here, there are ticks to spare, and a new name is only set while her door question waits)
 	@GameTest(environment = "opennpc-test:solo_ai_name", maxTicks = 6000)
 	public void the_app_names_her(GameTestHelper h) {
 		Scene s = scene(h, 12, 12, 2, 2);
@@ -378,7 +378,8 @@ public class CompanionGameTests {
 					}
 				}
 				case 1 -> {
-					if (ai.seen.size() == 1 && !brain.busy()) {
+					// (each new pick while her door question is waiting, as a person picking in the app would; see StandIn.parked)
+					if (ai.seen.size() == 1 && !brain.busy() && ai.parked()) {
 						String system = ai.seen.get(0).getAsJsonArray("messages").get(0).getAsJsonObject().get("content").getAsString();
 						check(h, system.contains("You control Yui") && !system.contains("Ana"), "her instructions use the app's name");
 						ai.setName("Mila");   // (another companion picked in the app)
@@ -394,11 +395,16 @@ public class CompanionGameTests {
 						brain.onAppName.run();
 						check(h, s.ana.getCustomName().getString().equals("Ana"), "with the app's name turned off she is her setting's name");
 						cfg.useAppName = true;
-						ai.setName(null);
 						step[0] = 3;
 					}
 				}
 				case 3 -> {
+					if (ai.parked()) {
+						ai.setName(null);
+						step[0] = 4;
+					}
+				}
+				case 4 -> {
 					if (changed[0] == 4) {   // (the door's answer with no name)
 						check(h, brain.appName().isEmpty() && shown.equals("Ana"), "a door with no name: back to her setting (" + shown + ")");
 						check(h, opennpc.NpcConfig.cleanOrEmpty(" Zoë!\n") .equals("Zoë") && opennpc.NpcConfig.cleanOrEmpty("a very long name here!!").equals("a very long name"), "names: any language's letters, 16 at most");

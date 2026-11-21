@@ -57,6 +57,12 @@ final class StandIn implements AutoCloseable {
 	/** The companion picked in the app (null: the door gives no name). A door that is waiting answers at once. */
 	void setName(String v) { synchronized (lock) { name = v; lock.notifyAll(); } }
 
+	private int parked = 0;
+
+	/** A door question is waiting right now, so a new name is answered at once. (A name set in the moment between two questions is
+	 * only seen when the next one's wait runs out, up to 25 seconds later.) */
+	boolean parked() { synchronized (lock) { return parked > 0; } }
+
 	private void handle(HttpExchange x) throws IOException {
 		String path = x.getRequestURI().getPath();
 		try {
@@ -80,8 +86,13 @@ final class StandIn implements AutoCloseable {
 		String body;
 		synchronized (lock) {
 			String startName = name;
-			while (has && words <= since && call == was && java.util.Objects.equals(name, startName) && System.currentTimeMillis() < until) {
-				try { lock.wait(Math.max(1, until - System.currentTimeMillis())); } catch (InterruptedException e) { break; }
+			parked++;
+			try {
+				while (has && words <= since && call == was && java.util.Objects.equals(name, startName) && System.currentTimeMillis() < until) {
+					try { lock.wait(Math.max(1, until - System.currentTimeMillis())); } catch (InterruptedException e) { break; }
+				}
+			} finally {
+				parked--;
 			}
 			JsonObject b = new JsonObject();
 			b.addProperty("call", call);

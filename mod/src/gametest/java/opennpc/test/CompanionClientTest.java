@@ -17,6 +17,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.world.Difficulty;
 import opennpc.OpenNpc;
@@ -53,18 +54,18 @@ public class CompanionClientTest implements FabricClientGameTest {
 			s.setDifficulty(Difficulty.PEACEFUL);
 			s.setAllowCommands(true);
 		}).create()) {
-			sp.getClientLevel().waitForChunksRender();
+			waitForChunksRender(sp);
 			sp.getServer().runCommand("time set 1000");
 			sp.getServer().runCommand("weather clear");
 			ctx.waitTicks(40);
-			sp.getClientLevel().waitForChunksRender();
+			waitForChunksRender(sp);
 
 			// she shows up a few seconds after he joins, a few steps behind him, and walks up
 			ctx.waitFor(mc -> ana(mc) != null, 1200);
 			note(ctx, "she is in the world");
 			ctx.waitFor(mc -> { CompanionEntity a = ana(mc); return a != null && a.distanceTo(mc.player) < 6 && a.getDeltaMovement().horizontalDistance() < 0.01; }, 600);
 			ctx.waitTicks(20);
-			ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
+			ctx.runOnClient(mc -> clearChat(mc));
 			faceAna(ctx);
 			ctx.waitTicks(10);
 			ctx.takeScreenshot("open-npc-1-she-walks-up");
@@ -129,7 +130,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 			sp.getServer().runCommand("fill " + (x - 7) + " " + y + " " + (z + 2) + " " + (x - 5) + " " + (y + 2) + " " + (z + 4) + " minecraft:stone");
 			sp.getServer().runCommand("setblock " + (x - 5) + " " + (y + 1) + " " + (z + 3) + " minecraft:coal_ore");
 			ctx.waitTicks(40);
-			ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
+			ctx.runOnClient(mc -> clearChat(mc));
 
 			// typed in chat: she chops wood and brings it
 			ctx.runOnClient(mc -> mc.player.connection.sendChat("get some wood"));
@@ -173,7 +174,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 
 			// ---- step 3: a house and a field. (The test hands her 20 logs, so the picture doesn't wait on her chopping 5 trees.)
 			sp.getServer().runOnServer(server -> OpenNpc.manager().companion().addToBag(new ItemStack(Items.OAK_LOG, 20)));
-			ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
+			ctx.runOnClient(mc -> clearChat(mc));
 			ctx.runOnClient(mc -> mc.player.connection.sendChat("build a house"));
 			waitJob(ctx, sp, "building", 400);
 			waitServer(ctx, sp, a -> a.job() != null && a.job().progress().matches("[2-9][0-9]/.*"), 4000, "the walls going up");
@@ -207,7 +208,7 @@ public class CompanionClientTest implements FabricClientGameTest {
 				sp.getServer().runCommand("tp @p " + (door[0] - out.getStepX() * 8) + " " + door[1] + " " + (door[2] - out.getStepZ() * 8) + " facing " + door[0] + " " + (door[1] + 1) + " " + door[2]);
 			}
 			ctx.waitTicks(30);
-			sp.getClientLevel().waitForChunksRender();
+			waitForChunksRender(sp);
 			lookAtBlock(ctx, door[0], door[1] + 1, door[2]);
 			ctx.waitTicks(10);
 			ctx.takeScreenshot("open-npc-14-the-house");
@@ -256,6 +257,41 @@ public class CompanionClientTest implements FabricClientGameTest {
 		});
 		notes.add(line);
 		OpenNpc.LOG.info("[client test] {}", line);
+	}
+
+	// Two things the test uses sit in different places from one version to the next, so they are looked up by name:
+	// the wait for the world to be drawn (Fabric's test API: getClientLevel() up to 26.2, getConnection() from 26.3), and
+	// the chat on screen (Minecraft: gui.getChat() up to 26.2, gui.hud.getChat() from 26.3).
+	private static void waitForChunksRender(TestSingleplayerContext sp) {
+		try {
+			java.lang.reflect.Method world;
+			try {
+				world = TestSingleplayerContext.class.getMethod("getClientLevel");
+			} catch (NoSuchMethodException e) {
+				world = TestSingleplayerContext.class.getMethod("getConnection");
+			}
+			world.getReturnType().getMethod("waitForChunksRender").invoke(world.invoke(sp));
+		} catch (java.lang.reflect.InvocationTargetException e) {
+			if (e.getCause() instanceof RuntimeException r) throw r;
+			if (e.getCause() instanceof Error err) throw err;
+			throw new IllegalStateException(e.getCause());
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private static void clearChat(Minecraft mc) {
+		try {
+			Object holder = mc.gui;
+			try {
+				holder = holder.getClass().getField("hud").get(holder);
+			} catch (NoSuchFieldException e) {
+				// (up to 26.2 the chat is on the gui itself)
+			}
+			((ChatComponent) holder.getClass().getMethod("getChat").invoke(holder)).clearMessages(false);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private static void writeConfig(String url) {

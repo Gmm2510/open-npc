@@ -132,7 +132,7 @@ public final class Farm extends Work {
 		if (at == null) {
 			plots.removeIf(p -> !tillable(level, p) && !emptyFarmland(level, p));
 			if (plots.isEmpty() || sown >= want || c.count(SEEDS) == 0) return finish(c.count(SEEDS) == 0 && sown < want ? "out of seeds" : "");
-			at = plots.stream().min(Comparator.comparingDouble(p -> p.getCenter().distanceToSqr(c.position()))).get();
+			at = plots.stream().min(Comparator.comparingDouble(p -> Vec3.atCenterOf(p).distanceToSqr(c.position()))).get();
 			plots.remove(at);
 			aim = 0;
 			walking = 0;
@@ -149,7 +149,7 @@ public final class Farm extends Work {
 			c.holdMatching(s -> s.is(ItemTags.HOES));
 			c.swingArm();
 			level.setBlock(at, Blocks.FARMLAND.defaultBlockState(), 11);
-			level.playSound(null, at, SoundEvents.HOE_TILL, SoundSource.BLOCKS, 1.0F, 1.0F);
+			level.playSound(null, at, Versions.sound(SoundEvents.HOE_TILL), SoundSource.BLOCKS, 1.0F, 1.0F);
 			ItemStack hoe = c.getMainHandItem();
 			if (hoe.is(ItemTags.HOES)) hoe.hurtAndBreak(1, c, EquipmentSlot.MAINHAND);
 			aim = 0;
@@ -209,14 +209,14 @@ public final class Farm extends Work {
 		BlockPos around = o != null && o.level() == level ? o.blockPosition() : c.blockPosition();
 		// water nearby makes a better field
 		BlockPos water = null;
-		for (BlockPos p : BlockPos.withinManhattan(around, 14, 3, 14)) {
+		for (BlockPos p : Versions.withinManhattan(around, 14, 3, 14)) {
 			if (level.getFluidState(p).is(FluidTags.WATER) && level.getFluidState(p).isSource() && level.getBlockState(p.above()).isAir()) { water = p.immutable(); break; }
 		}
 		BlockPos centre = water != null ? water : null;
 		if (centre == null) {
 			// the nearest open patch, a few steps from him
 			double best = Double.MAX_VALUE;
-			for (BlockPos p : BlockPos.withinManhattan(around.below(), 12, 3, 12)) {
+			for (BlockPos p : Versions.withinManhattan(around.below(), 12, 3, 12)) {
 				if (p.distManhattan(around.below()) < 3 || !tillable(level, p)) continue;
 				int open = 0;
 				for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) if (tillable(level, p.offset(dx, 0, dz)) || emptyFarmland(level, p.offset(dx, 0, dz))) open++;
@@ -241,7 +241,7 @@ public final class Farm extends Work {
 		BlockPos me = c.blockPosition();
 		BlockPos best = null;
 		double bestD = Double.MAX_VALUE;
-		for (BlockPos p : BlockPos.withinManhattan(me, 12, 3, 12)) {
+		for (BlockPos p : Versions.withinManhattan(me, 12, 3, 12)) {
 			BlockState s = level.getBlockState(p);
 			if (!(s.is(Blocks.SHORT_GRASS) || s.is(Blocks.TALL_GRASS) || s.is(Blocks.FERN))) continue;
 			double d = p.distSqr(me);
@@ -256,7 +256,7 @@ public final class Farm extends Work {
 		ServerPlayer o = c.owner();
 		BlockPos around = o != null && o.level() == level ? o.blockPosition() : c.blockPosition();
 		List<BlockPos> out = new ArrayList<>();
-		for (BlockPos p : BlockPos.withinManhattan(around, 16, 4, 16)) {
+		for (BlockPos p : Versions.withinManhattan(around, 16, 4, 16)) {
 			BlockState s = level.getBlockState(p);
 			if (s.getBlock() instanceof CropBlock crop && crop.isMaxAge(s)) out.add(p.immutable());
 		}
@@ -273,7 +273,7 @@ public final class Farm extends Work {
 				c.holdMatching(s -> s.is(ItemTags.HOES));
 				c.swingArm();
 				level.setBlock(soil, Blocks.FARMLAND.defaultBlockState(), 11);
-				level.playSound(null, soil, SoundEvents.HOE_TILL, SoundSource.BLOCKS, 1.0F, 1.0F);
+				level.playSound(null, soil, Versions.sound(SoundEvents.HOE_TILL), SoundSource.BLOCKS, 1.0F, 1.0F);
 			}
 			if (emptyFarmland(level, soil) && c.count(SEEDS) > 0) {
 				if (!near(level, soil)) return Status.RUNNING;
@@ -305,7 +305,7 @@ public final class Farm extends Work {
 				return finish("");
 			}
 		}
-		BlockPos next = plots.stream().min(Comparator.comparingDouble(p -> p.getCenter().distanceToSqr(c.position()))).get();
+		BlockPos next = plots.stream().min(Comparator.comparingDouble(p -> Vec3.atCenterOf(p).distanceToSqr(c.position()))).get();
 		plots.remove(next);
 		breaker = new Breaker(c, next);
 		return Status.RUNNING;

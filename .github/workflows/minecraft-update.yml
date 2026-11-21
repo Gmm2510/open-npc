@@ -77,10 +77,11 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
       - name: A screen for the real-game test
-        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
+        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb mesa-vulkan-drivers
       - name: Build, and the in-game tests on a headless server
         run: ./gradlew build $VERSIONS --console=plain
       - name: The real game, with the built jar in its mods folder
+        timeout-minutes: 30
         run: ./gradlew runProductionClientGameTest $VERSIONS --console=plain
       - uses: actions/upload-artifact@v7
         if: always()
@@ -115,7 +116,7 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
       - name: A screen for the real-game test
-        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb
+        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb mesa-vulkan-drivers
       - name: Build and test for the new version
         id: try
         continue-on-error: true

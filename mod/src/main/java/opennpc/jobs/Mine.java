@@ -11,10 +11,12 @@ import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import opennpc.entity.CompanionEntity;
@@ -27,13 +29,17 @@ import org.jspecify.annotations.Nullable;
  * has to be given for now.
  */
 public final class Mine extends Work {
+	// (by id: the Java names of these two tags moved in Minecraft 26.3)
+	private static final TagKey<Block> COAL_ORES = Versions.blockTag("coal_ores");
+	private static final TagKey<Block> DIAMOND_ORES = Versions.blockTag("diamond_ores");
+
 	public enum Kind {
 		STONE("stone", s -> s.is(BlockTags.BASE_STONE_OVERWORLD), s -> s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE) || s.is(Items.STONE) || s.is(Items.DEEPSLATE) || s.is(Items.GRANITE) || s.is(Items.DIORITE) || s.is(Items.ANDESITE) || s.is(Items.TUFF), Blocks.STONE.defaultBlockState()),
-		COAL("coal", s -> s.is(BlockTags.COAL_ORES), s -> s.is(Items.COAL), Blocks.COAL_ORE.defaultBlockState()),
+		COAL("coal", s -> s.is(COAL_ORES), s -> s.is(Items.COAL), Blocks.COAL_ORE.defaultBlockState()),
 		COPPER("copper", s -> s.is(BlockTags.COPPER_ORES), s -> s.is(Items.RAW_COPPER), Blocks.COPPER_ORE.defaultBlockState()),
 		IRON("iron", s -> s.is(BlockTags.IRON_ORES), s -> s.is(Items.RAW_IRON), Blocks.IRON_ORE.defaultBlockState()),
 		GOLD("gold", s -> s.is(BlockTags.GOLD_ORES), s -> s.is(Items.RAW_GOLD), Blocks.GOLD_ORE.defaultBlockState()),
-		DIAMONDS("diamonds", s -> s.is(BlockTags.DIAMOND_ORES), s -> s.is(Items.DIAMOND), Blocks.DIAMOND_ORE.defaultBlockState());
+		DIAMONDS("diamonds", s -> s.is(DIAMOND_ORES), s -> s.is(Items.DIAMOND), Blocks.DIAMOND_ORE.defaultBlockState());
 
 		final String word;
 		final Predicate<BlockState> block;

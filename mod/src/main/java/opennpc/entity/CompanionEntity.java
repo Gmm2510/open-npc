@@ -1,5 +1,6 @@
 package opennpc.entity;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -429,7 +430,34 @@ public class CompanionEntity extends PathfinderMob implements InventoryCarrier {
 
 	/** Swings her main arm (mining, chopping, hitting, crafting, tossing, waving). The one place that calls the game's swing. */
 	public void swingArm() {
-		this.swing(InteractionHand.MAIN_HAND);
+		try {
+			if (SWING_ANIMATION == null) SWING.invoke(this, InteractionHand.MAIN_HAND);
+			else SWING.invoke(this, InteractionHand.MAIN_HAND, SWING_ANIMATION.invoke(this.getMainHandItem()));
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	// The game's swing differs by Minecraft version, so it is looked up by name: swing(hand) up to 26.2; from 26.3
+	// swing(hand, animation), where the animation is the one of the item in that hand (what swing(hand) used by itself before).
+	private static final Method SWING;
+	private static final Method SWING_ANIMATION;
+
+	static {
+		Method swing;
+		Method animation = null;
+		try {
+			try {
+				swing = Mob.class.getMethod("swing", InteractionHand.class);
+			} catch (NoSuchMethodException old) {
+				animation = ItemStack.class.getMethod("getAttackAnimation");
+				swing = Mob.class.getMethod("swing", InteractionHand.class, animation.getReturnType());
+			}
+		} catch (NoSuchMethodException e) {
+			throw new ExceptionInInitializerError(e);
+		}
+		SWING = swing;
+		SWING_ANIMATION = animation;
 	}
 
 	private void emoteTick() {

@@ -52,7 +52,15 @@ public final class Give extends Work {
 			if (d < closest - 1) { closest = d; notCloser = 0; } else notCloser++;
 			if (notCloser > 120 && !cameOver) {
 				cameOver = true;
-				if (c.teleportNear(level, o, 2.5)) { c.freshStart(); opennpc.OpenNpc.LOG.info("[Open NPC] stuck on the way to the owner: came over"); return Status.RUNNING; }
+				// (right next to him, within handing reach: a spot 2.5 to 4.5 blocks off was past the edge of the rise about half the time,
+				// back at the bottom and still too far to hand over. So 1 to 3 blocks off, and again while that isn't close enough.)
+				boolean came = false;
+				for (int i = 0; i < 8; i++) {
+					if (!c.teleportNear(level, o, 1.0)) continue;
+					came = true;
+					if (c.distanceTo(o) <= 3.0) break;
+				}
+				if (came) { c.freshStart(); opennpc.OpenNpc.LOG.info("[Open NPC] stuck on the way to the owner: came over, {} blocks off", String.format("%.1f", c.distanceTo(o))); return Status.RUNNING; }
 			}
 			if (ticks > 20 * 60) { putBack(); return fail("couldn't get to the owner"); }
 			c.walkTo(o.position(), d > 10 ? 1.13 : 1.0);

@@ -54,7 +54,7 @@ public class CompanionGameTests {
 		// (no monsters wandering into tests that aren't about fighting; the fight test turns them back on)
 		level.getServer().setDifficulty(net.minecraft.world.Difficulty.PEACEFUL, true);
 		// leftovers from an earlier test go first
-		for (Entity e : level.getEntities((Entity) null, new AABB(h.absolutePos(new BlockPos(-60, -10, -60)).getCenter(), h.absolutePos(new BlockPos(80, 20, 80)).getCenter()), e -> e instanceof CompanionEntity)) e.discard();
+		for (Entity e : level.getEntities((Entity) null, new AABB(Vec3.atCenterOf(h.absolutePos(new BlockPos(-60, -10, -60))), Vec3.atCenterOf(h.absolutePos(new BlockPos(80, 20, 80)))), e -> e instanceof CompanionEntity)) e.discard();
 		// (stand-in players an earlier test left behind could be in her way)
 		for (ServerPlayer old : new ArrayList<>(level.getServer().getPlayerList().getPlayers())) {
 			if (old.getGameProfile().name().equals("test-mock-player")) level.getServer().getPlayerList().remove(old);
@@ -87,6 +87,14 @@ public class CompanionGameTests {
 		for (int cx = Math.min(a.getX(), b.getX()) >> 4; cx <= Math.max(a.getX(), b.getX()) >> 4; cx++)
 			for (int cz = Math.min(a.getZ(), b.getZ()) >> 4; cz <= Math.max(a.getZ(), b.getZ()) >> 4; cz++)
 				h.getLevel().setChunkForced(cx, cz, on);
+		if (!on) return;
+		// (a forced chunk only runs its entities once the chunks around it are loaded too, and those load in the background while
+		// the test server races through its ticks. One run had her stand frozen just past a chunk border until the test timed
+		// out, which fits a floor chunk that wasn't running yet. So the floor's chunks and two rings around them are loaded
+		// here, before anything moves.)
+		for (int cx = (Math.min(a.getX(), b.getX()) >> 4) - 2; cx <= (Math.max(a.getX(), b.getX()) >> 4) + 2; cx++)
+			for (int cz = (Math.min(a.getZ(), b.getZ()) >> 4) - 2; cz <= (Math.max(a.getZ(), b.getZ()) >> 4) + 2; cz++)
+				h.getLevel().getChunk(cx, cz);
 	}
 
 	static void check(GameTestHelper h, boolean ok, String what) {

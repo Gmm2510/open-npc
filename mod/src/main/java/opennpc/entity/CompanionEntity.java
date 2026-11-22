@@ -27,6 +27,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -273,11 +275,13 @@ public class CompanionEntity extends PathfinderMob implements InventoryCarrier {
 		lookNear(owner, dist);
 	}
 
-	/** How fast to go, as a multiple of a normal walk. over: how far past her gap the owner is. */
+	/** How fast to go, as a multiple of her walking speed setting (her real speed on the ground goes with its square: 1.0 is about 4.5
+	 * blocks a second, 1.13 about 5.8, 1.2 about 6.5, 1.25 about 7). over: how far past her gap the owner is. */
 	static double followSpeed(double over, double ownerSpeed, double toSpot) {
 		double s;
 		if (over > 10) s = 1.25;                 // far behind: run to catch up
-		else if (ownerSpeed > 0.25 || over > 5) s = 1.13;   // the owner runs (over 5 blocks a second), or she is well behind: run
+		else if (ownerSpeed > 0.25) s = 1.2;     // the owner runs (over 5 blocks a second, a player's run is 5.6): a little faster than him
+		else if (over > 5) s = 1.13;             // well behind: run
 		else if (over > 2) s = 1.06;             // a brisk walk
 		else s = 1.0;                            // a walk
 		if (toSpot < 2.0 && ownerSpeed < 0.05) s = Math.min(s, 0.85);   // the last steps, slower
@@ -288,8 +292,20 @@ public class CompanionEntity extends PathfinderMob implements InventoryCarrier {
 		double step = want > speedNow ? 0.06 : 0.09;
 		speedNow = speedNow + Mth.clamp(want - speedNow, -step, step);
 		if (speedNow < 0.5 && want >= 0.5) speedNow = 0.5;   // (from standing: a step starts at a slow walk, not at zero)
-		this.getNavigation().setSpeedModifier(speedNow);
 		this.setSprinting(speedNow > 1.1);
+		// (the game's sprinting adds 30% to her speed by itself, all in one tick: on top of her run she shot to 9 to 12 blocks a
+		// second. It is taken back out, so she goes the speed asked for and only looks like she sprints.)
+		this.getNavigation().setSpeedModifier(speedNow / sprintBonus());
+	}
+
+	/** How much the game's own sprinting multiplies her speed right now (1 when she isn't sprinting). */
+	private double sprintBonus() {
+		AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
+		if (speed == null) return 1.0;
+		for (AttributeModifier m : speed.getModifiers()) {
+			if (m.id().getPath().contains("sprint") && m.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) return 1.0 + m.amount();
+		}
+		return 1.0;
 	}
 
 	private void startWalking() {

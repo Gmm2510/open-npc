@@ -3,6 +3,13 @@
 Each release of the mod, newest first. A release is built and tested for every Minecraft version in `versions.json`; the jar's
 name says which one it is for (`open-npc-<version>+mc<minecraft>.jar`).
 
+## 0.3.4
+
+- **No more bursts of speed when she runs to catch up.** When she fell well behind, the game's own sprinting added 30% to her
+  run all in one tick, and she shot ahead at up to 12 blocks a second, twice as fast as you can run. Now she runs at the speed
+  she's meant to and still looks like she's sprinting. Her fastest is about 7 blocks a second.
+- **She still keeps up when you sprint.** When you run, she runs a little faster than you (about 6.5 blocks a second to your 5.6).
+
 ## 0.3.3
 
 - **Minecraft 26.3.** Open NPC is built and tested for Minecraft 26.3 (with Fabric API 0.166.2+26.3) as well as 26.1.2, from

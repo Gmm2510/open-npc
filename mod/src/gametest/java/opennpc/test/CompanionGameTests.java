@@ -179,6 +179,63 @@ public class CompanionGameTests {
 		});
 	}
 
+	@GameTest(environment = "opennpc-test:solo_run", maxTicks = 400)
+	public void runs_to_catch_up_without_a_burst(GameTestHelper h) {
+		// he stands 28 blocks off: far enough for her fastest run (and the game's own sprinting, which used to add 30% on top in one tick)
+		Scene s = scene(h, 16, 16, -4, -4);
+		double[] top = {0}, change = {0}, prev = {Double.NaN, 0};
+		Vec3[] last = {s.ana.position()};
+		h.onEachTick(() -> {
+			if (s.ana.isRemoved()) return;
+			Vec3 now = s.ana.position();
+			double v = Math.hypot(now.x - last[0].x, now.z - last[0].z);
+			last[0] = now;
+			top[0] = Math.max(top[0], v);
+			// (while she runs in, where the burst was: the start from standing and the stop on arriving are another matter)
+			if (!Double.isNaN(prev[0]) && prev[0] > 0.05 && s.ana.speedNow() >= 1.0 && prev[1] >= 1.0 && s.dist() > GAP + 3) change[0] = Math.max(change[0], Math.abs(v - prev[0]));
+			prev[0] = v;
+			prev[1] = s.ana.speedNow();
+			if (h.getTick() > 20 && !s.ana.isWalking() && s.dist() <= GAP + 1.2) {
+				OpenNpc.LOG.info("[test] run: top speed {} b/s, biggest speed change in a tick while moving {} b/s, arrived after {} ticks", fmt(top[0] * 20), fmt(change[0] * 20), h.getTick());
+				check(h, top[0] * 20 > 6.0, "she runs to catch up (" + fmt(top[0] * 20) + " b/s)");
+				check(h, top[0] * 20 < 7.5, "she never moves faster than a running player (" + fmt(top[0] * 20) + " b/s)");
+				check(h, change[0] < 0.14, "her speed eases through the run, no lurch (" + fmt(change[0] * 20) + " b/s in one tick)");
+				s.done();
+			}
+		});
+	}
+
+	@GameTest(environment = "opennpc-test:solo_sprint", maxTicks = 500)
+	public void keeps_up_with_a_running_owner(GameTestHelper h) {
+		// he sprints (5.6 blocks a second, a player's run) 50 blocks across the floor, then stops
+		Scene s = scene(h, -12, -12, -15, -14);
+		double pace = 0.2806;
+		int runTicks = (int) Math.ceil(36 * Math.sqrt(2) / pace);
+		double[] top = {0}, behind = {0}, half = {0}, end = {0};
+		Vec3[] last = {s.ana.position()};
+		h.onEachTick(() -> {
+			if (s.ana.isRemoved()) return;
+			long t = h.getTick();
+			if (t <= runTicks) {
+				double d = t * pace / Math.sqrt(2);
+				s.ownerAt(-12 + d, -12 + d);
+				s.ownerFacing(-45);
+			}
+			Vec3 now = s.ana.position();
+			top[0] = Math.max(top[0], Math.hypot(now.x - last[0].x, now.z - last[0].z));
+			last[0] = now;
+			if (t <= runTicks) behind[0] = Math.max(behind[0], s.dist());
+			if (t == runTicks / 2) half[0] = s.dist();
+			if (t == runTicks) end[0] = s.dist();
+			if (t > runTicks + 20 && !s.ana.isWalking() && s.dist() <= GAP + 1.2) {
+				OpenNpc.LOG.info("[test] sprint: top speed {} b/s, farthest behind {}, {} behind halfway through his run and {} when he stopped, ended {} from him", fmt(top[0] * 20), fmt(behind[0]), fmt(half[0]), fmt(end[0]), fmt(s.dist()));
+				check(h, behind[0] < 12, "she keeps up with him running (farthest behind " + fmt(behind[0]) + ")");
+				check(h, top[0] * 20 < 7.5, "she never moves faster than a running player (" + fmt(top[0] * 20) + " b/s)");
+				s.done();
+			}
+		});
+	}
+
 	@GameTest(environment = "opennpc-test:solo_come", maxTicks = 300)
 	public void comes_when_called(GameTestHelper h) {
 		Scene s = scene(h, 6, 6, 2, 2);

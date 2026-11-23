@@ -3,6 +3,10 @@
 An AI companion for Minecraft Java Edition that joins your world as a real player and does what you ask: chops trees, mines,
 crafts, smelts, builds, farms, fights and follows you around. You bring the AI. Free and open source (MIT).
 
+There's also a Morrowind version: [open-npc-morrowind](https://github.com/Gmm2510/open-npc-morrowind), a companion for The
+Elder Scrolls III: Morrowind (an MWSE mod) who follows you through the whole game, fights beside you, levels up with you and
+never gets lost.
+
 There are two ways to run it:
 
 - **The mod** (`mod/`, Fabric, Minecraft 26.3 and 26.1.2): she lives in any world you open, single-player included. She follows,
